@@ -11,6 +11,10 @@
 
 ---
 
+> **با برنامه‌نویسی آشنا نیستید؟** راهنمای گام‌به‌گام و ساده در فایل
+> [`راهنمای-اجرا.md`](راهنمای-اجرا.md) است. سریع‌ترین راه اجرا: دوبار کلیک روی
+> `start-windows.bat` (ویندوز)، `start-mac.command` (مک) یا `bash start.sh` (لینوکس).
+
 ## امکانات
 
 ### مدیریت مشتریان (CRM)
@@ -237,11 +241,15 @@ office-crm/
 │   ├── templates/         قالب‌های Jinja (فارسی/راست‌به‌چپ)
 │   └── static/            CSS ساخته‌شده، JS، فونت وزیرمتن، کتابخانه‌های محلی
 ├── migrations/            نسخه‌های Alembic
-├── scripts/               seed.py · backup.py · restore.py
-├── tools/                 smoke.py · locustfile.py
+├── scripts/               seed.py · backup.py · restore.py · reset-password.py
+├── tools/                 launcher.py · smoke.py · locustfile.py
 ├── tests/                 conftest + test_pages + test_workflows + test_units + test_browser
 ├── deploy/                install.sh · systemd · Caddyfile · Dockerfile · compose · litestream
-└── frontend/              فقط ابزار ساخت (Tailwind + daisyUI + کتابخانه‌های محلی)
+├── frontend/              فقط ابزار ساخت (Tailwind + daisyUI + کتابخانه‌های محلی)
+├── start-windows.bat      اجرای سادهٔ برنامه با دوبار کلیک (ویندوز/مک/لینوکس)
+├── start-mac.command
+├── start.sh
+└── راهنمای-اجرا.md        راهنمای گام‌به‌گام برای کاربران غیربرنامه‌نویس
 ```
 
 ---
