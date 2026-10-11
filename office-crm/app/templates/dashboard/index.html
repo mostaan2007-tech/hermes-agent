@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% from "macros.html" import stat, badge, empty, sparkline, bar_chart with context %}
+
+{% block title %}داشبورد — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-bold">سلام {{ user.full_name }} 👋</h1>
+    <p class="mt-1 text-xs text-base-content/60">{{ today_jalali }} — تصویر یک‌جای کار امروز شما</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    <a class="btn btn-ghost btn-sm" href="/tasks/mine">وظایف من</a>
+    <a class="btn btn-ghost btn-sm" href="/deals/board">قیف فروش</a>
+    {% if can('crm.create') %}<a class="btn btn-primary btn-sm" href="/deals/new">＋ فرصت فروش</a>{% endif %}
+  </div>
+</div>
+
+{# ----------------------------------------------------------------- KPI row #}
+<div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-6">
+  {{ stat("کارتابل من", inbox | length | fa, "📥", href="/inbox",
+          hint=("نیازمند اقدام" if inbox else "چیزی در انتظار شما نیست")) }}
+  {{ stat("وظایف باز", tasks_summary.open | fa, "✓", href="/tasks/mine",
+          hint=("عقب‌افتاده: " ~ (tasks_summary.overdue | fa)) if tasks_summary.overdue else "بدون تأخیر",
+          tone="text-error" if tasks_summary.overdue else "text-primary") }}
+  {{ stat("ارزش فرصت‌های باز", open_value | money, "📊", href="/deals",
+          hint="ارزش وزنی: " ~ (weighted_value | money)) }}
+  {{ stat("درخواست‌های در جریان", requests_summary.open | fa, "📄", href="/requests",
+          hint=(requests_summary.total | fa) ~ " درخواست ثبت‌شده") }}
+  {{ stat("نامه‌های در انتظار امضا", letters_summary.awaiting_signature | fa, "✉", href="/letters/signatures",
+          tone="text-warning" if letters_summary.awaiting_signature else "text-primary",
+          hint="نامه‌های وارده: " ~ (letters_summary.incoming | fa)) }}
+  {{ stat("اعلان‌های خوانده‌نشده", unread_notifications | fa, "🔔", href="/notifications") }}
+</div>
+
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+
+  {# ------------------------------------------------------------- inbox #}
+  <div class="panel xl:col-span-2">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">📥 کارتابل من — کارهایی که روی میز شماست</h2>
+      <a class="text-xs text-primary hover:underline" href="/inbox">همه</a>
+    </div>
+    <div class="panel-body p-0">
+      {% for item in inbox %}
+        <a href="{{ item.url }}" class="flex items-center justify-between gap-3 border-b border-base-200 px-4 py-2.5 last:border-0 hover:bg-base-200/60">
+          <span class="flex min-w-0 items-center gap-2">
+            <span>{{ {"approval": "✅", "signature": "✍️", "task": "✓", "deal": "📊"}.get(item.kind, "•") }}</span>
+            <span class="min-w-0">
+              <span class="block truncate text-sm">{{ item.title }}</span>
+              <span class="block text-[11px] text-base-content/50">{{ item.subtitle }}</span>
+            </span>
+          </span>
+          <span class="whitespace-nowrap text-[11px] text-base-content/45">{{ item.at | reltime }}</span>
+        </a>
+      {% else %}
+        {{ empty("کارتابل شما خالی است 🎉", "درخواست، نامه یا وظیفه‌ای در انتظار اقدام شما نیست.") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ---------------------------------------------------------- upcoming #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">⏰ نزدیک‌ترین‌ها (۷ روز آینده)</h2>
+      <a class="text-xs text-primary hover:underline" href="/calendar">تقویم</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for item in upcoming %}
+        <a href="{{ item.url }}" class="flex items-start gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+          <span>{{ item.icon }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm">{{ item.title }}</span>
+            <span class="block text-[11px] text-base-content/50">{{ item.at | jdt }}</span>
+          </span>
+        </a>
+      {% else %}
+        {{ empty("رویدادی پیش‌رو نیست", "جلسه، وظیفه یا پیگیری‌ای برای هفته آینده ثبت نشده است.", "🗓") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------------------ pipeline #}
+  <div class="panel xl:col-span-2">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">📊 قیف فروش</h2>
+      <a class="text-xs text-primary hover:underline" href="/deals/board">تخته کانبان</a>
+    </div>
+    <div class="panel-body grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div class="space-y-2">
+        {% for column in pipeline %}
+          {% if column.count %}
+            <div>
+              <div class="mb-1 flex items-center justify-between text-[11px] text-base-content/60">
+                <span>{{ column.stage.name }}</span>
+                <span class="num">{{ column.count | fa }} · {{ column.amount | money }}</span>
+              </div>
+              <div class="h-2 w-full overflow-hidden rounded-full bg-base-200">
+                <div class="h-full rounded-full bg-primary" style="width: {{ [((column.count * 100 / (pipeline | sum(attribute='count') or 1)) | round(1)), 100] | min }}%"></div>
+              </div>
+            </div>
+          {% endif %}
+        {% else %}
+          <p class="text-xs text-base-content/50">مرحله‌ای تعریف نشده است.</p>
+        {% endfor %}
+      </div>
+      <div>
+        <div class="mb-1 text-[11px] text-base-content/60">روند فروش (۶ ماه گذشته)</div>
+        {{ sparkline(chart_line, "مجموع قراردادهای موفق هر ماه") }}
+        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-field bg-base-200/60 px-2 py-1.5">
+            موفق: <b class="num">{{ deals_summary.won_count | fa }}</b> · {{ deals_summary.won_value | money }}
+          </div>
+          <div class="rounded-field bg-base-200/60 px-2 py-1.5">
+            باز: <b class="num">{{ deals_summary.open_count | fa }}</b> · {{ deals_summary.open_value | money }}
+          </div>
+          <div class="rounded-field bg-base-200/60 px-2 py-1.5">از دست رفته: <b class="num">{{ deals_summary.lost_count | fa }}</b></div>
+          <div class="rounded-field bg-base-200/60 px-2 py-1.5">پیش‌بینی وزنی: <b class="num">{{ weighted_value | money }}</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ------------------------------------------------------- tasks of mine #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">✓ وظایف من</h2>
+      <a class="text-xs text-primary hover:underline" href="/tasks/mine">همه</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for task in my_tasks %}
+        <div class="flex items-start justify-between gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+          <a class="min-w-0 flex-1" href="/tasks/{{ task.id }}">
+            <span class="block truncate text-sm">{{ task.title }}</span>
+            <span class="block text-[11px] text-base-content/50">
+              {% if task.due_date %}سررسید {{ task.due_date | jdate }}{% else %}بدون سررسید{% endif %}
+            </span>
+          </a>
+          <span class="flex items-center gap-1">
+            {{ badge(PRIORITY_LABELS.get(task.priority, task.priority), PRIORITY_BADGES.get(task.priority, "badge-ghost")) }}
+            <form method="post" action="/tasks/{{ task.id }}/status">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="status" value="done">
+              <input type="hidden" name="next" value="/">
+              <button class="btn btn-ghost btn-xs" title="انجام شد">✓</button>
+            </form>
+          </span>
+        </div>
+      {% else %}
+        {{ empty("وظیفه بازی ندارید", None, "✓") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ----------------------------------------------------------- follow-ups #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">🔔 پیگیری‌های من</h2>
+      <a class="text-xs text-primary hover:underline" href="/activities/agenda">دستور کار</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for activity in my_activities %}
+        <div class="flex items-start gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+          <span>{{ ACTIVITY_KIND_ICONS.get(activity.kind, "•") }}</span>
+          <a class="min-w-0 flex-1" href="/activities/{{ activity.id }}">
+            <span class="block truncate text-sm">{{ activity.subject }}</span>
+            <span class="block text-[11px] text-base-content/50">
+              {% set d = due(activity.due_at) %}
+              <span class="{{ d[1] }}">{{ d[0] }}</span>
+            </span>
+          </a>
+          {% set tone = due(activity.due_at)[1] %}
+          <form method="post" action="/activities/{{ activity.id }}/done">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="next" value="/">
+            <button class="btn btn-ghost btn-xs {{ tone }}" title="انجام شد">✓</button>
+          </form>
+        </div>
+      {% else %}
+        {{ empty("پیگیری بازی ندارید", None, "🔔") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# --------------------------------------------------------- stale deals #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">🥶 فرصت‌های راکد (بیش از ۱۴ روز)</h2>
+      <a class="text-xs text-primary hover:underline" href="/deals">همه</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for deal in stale_deals %}
+        <a href="/deals/{{ deal.id }}" class="flex items-center justify-between gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+          <span class="min-w-0">
+            <span class="block truncate text-sm">{{ deal.title }}</span>
+            <span class="block text-[11px] text-base-content/50">{{ deal.amount | money }} · آخرین تغییر {{ deal.updated_at | reltime }}</span>
+          </span>
+          {{ badge(DEAL_STATUS_LABELS.get(deal.status, deal.status), DEAL_STATUS_BADGES.get(deal.status, "badge-ghost")) }}
+        </a>
+      {% else %}
+        {{ empty("فرصت راکدی وجود ندارد", "همه فرصت‌ها در دو هفته گذشته به‌روز شده‌اند.", "🎉") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------------------ letters #}
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">✉ آخرین نامه‌ها</h2>
+      <a class="text-xs text-primary hover:underline" href="/letters">بایگانی نامه‌ها</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for letter in recent_letters %}
+        <a href="/letters/{{ letter.id }}" class="flex items-center justify-between gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+          <span class="min-w-0">
+            <span class="block truncate text-sm">{{ letter.subject }}</span>
+            <span class="block text-[11px] text-base-content/50">{{ letter.number or "پیش‌نویس" }} · {{ letter.letter_date | jdate }}</span>
+          </span>
+          {{ badge(LETTER_STATUS_LABELS.get(letter.status, letter.status), LETTER_STATUS_BADGES.get(letter.status, "badge-ghost")) }}
+        </a>
+      {% else %}
+        {{ empty("نامه‌ای ثبت نشده است", None, "✉") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# -------------------------------------------------------------- totals #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">👥 بهترین مشتریان (تعداد فرصت)</h2></div>
+    <div class="panel-body">{{ bar_chart(top_customers, "value") }}</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">🏭 پرکارترین صنعت‌ها</h2></div>
+    <div class="panel-body">{{ bar_chart(industries, "value") }}</div>
+  </div>
+
+  {# -------------------------------------------------------- announcements #}
+  <div class="panel xl:col-span-2">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">📣 اطلاعیه‌ها</h2>
+      <a class="text-xs text-primary hover:underline" href="/announcements">همه</a>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for item in announcements %}
+        <a href="/announcements/{{ item.id }}" class="block rounded-field border border-base-200 px-3 py-2 hover:bg-base-200/60">
+          <div class="flex items-center gap-2">
+            {% if item.is_pinned %}<span title="سنجاق‌شده">📌</span>{% endif %}
+            <span class="text-sm font-medium">{{ item.title }}</span>
+            <span class="ms-auto text-[11px] text-base-content/45">{{ item.publish_at | jdate if item.publish_at else item.created_at | jdate }}</span>
+          </div>
+          <p class="mt-1 line-clamp-2 text-xs text-base-content/60">{{ item.body | truncate(160) }}</p>
+        </a>
+      {% else %}
+        {{ empty("اطلاعیه‌ای منتشر نشده است", None, "📣") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# --------------------------------------------------------- leaderboard #}
+  <div class="panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">🏆 فعالیت همکاران (۳۰ روز)</h2></div>
+    <div class="panel-body">
+      {{ bar_chart(leaderboard, "total") }}
+    </div>
+  </div>
+
+  {# ------------------------------------------------------ recent activity #}
+  <div class="panel xl:col-span-3">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">🕒 آخرین رویدادها</h2>
+      <a class="text-xs text-primary hover:underline" href="/activities">همه فعالیت‌ها</a>
+    </div>
+    <div class="panel-body">
+      <div class="grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3">
+        {% for activity in recent_activities %}
+          <a href="/activities/{{ activity.id }}" class="flex items-center gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+            <span>{{ ACTIVITY_KIND_ICONS.get(activity.kind, "•") }}</span>
+            <span class="min-w-0 flex-1 truncate text-sm">{{ activity.subject }}</span>
+            <span class="whitespace-nowrap text-[11px] text-base-content/45">{{ activity.created_at | reltime }}</span>
+          </a>
+        {% else %}
+          {{ empty("رویدادی ثبت نشده است", None, "🕒") }}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

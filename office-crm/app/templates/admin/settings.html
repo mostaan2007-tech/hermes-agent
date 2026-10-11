@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header, empty with context %}
+
+{% block title %}تنظیمات سامانه — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("تنظیمات سامانه", "مشخصات سازمان، شماره‌گذاری اسناد و پیش‌فرض‌های مالی", "⚙") %}
+  <a class="btn btn-ghost btn-sm" href="/admin/backup">پشتیبان‌گیری</a>
+  <a class="btn btn-ghost btn-sm" href="/admin/users">کاربران</a>
+{% endcall %}
+
+<form method="post" action="/admin/settings" class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+  <div class="xl:col-span-2 space-y-4">
+    {% for group in groups %}
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">{{ group.icon }} {{ group.title }}</h2></div>
+        <div class="panel-body form-grid">
+          {% for key, label, kind in group.fields %}
+            <div class="field {{ 'md:col-span-3' if kind == 'textarea' else '' }}">
+              <label class="field-label" for="s-{{ key }}">{{ label }}</label>
+              {% if kind == "textarea" %}
+                <textarea id="s-{{ key }}" name="{{ key }}" rows="3" class="textarea textarea-bordered w-full text-sm">{{ values.get(key, '') }}</textarea>
+              {% elif kind == "number" %}
+                <input id="s-{{ key }}" name="{{ key }}" class="input input-sm w-full num" value="{{ values.get(key, '') }}">
+              {% else %}
+                <input id="s-{{ key }}" name="{{ key }}" class="input input-sm w-full" value="{{ values.get(key, '') }}">
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">لوگوی سازمان</h2></div>
+      <div class="panel-body">
+        {% if values.get('company_logo') %}
+          <img src="{{ values.get('company_logo') }}" alt="لوگو" class="mb-3 h-16 object-contain">
+        {% endif %}
+      </div>
+      <form method="post" action="/admin/settings/logo" enctype="multipart/form-data" class="panel-body space-y-2 border-t border-base-200">
+        <input type="file" name="file" accept="image/*" class="file-input file-input-sm file-input-bordered w-full" required>
+        <button class="btn btn-outline btn-sm w-full">بارگذاری لوگو</button>
+        <p class="text-[11px] text-base-content/50">لوگو در سرصفحه نامه‌ها و اسناد چاپی استفاده می‌شود.</p>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <button class="btn btn-primary btn-sm w-full">ذخیره تنظیمات</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">آخرین پشتیبان‌ها</h2><a class="text-[11px] text-primary hover:underline" href="/admin/backup">مدیریت</a></div>
+      <div class="panel-body space-y-2 text-xs">
+        {% for item in backups %}
+          <div class="flex items-center justify-between gap-2">
+            <span class="num truncate">{{ item.path.name }}</span>
+            <span class="text-base-content/50">{{ item.size | filesize }}</span>
+          </div>
+        {% else %}
+          <p class="text-base-content/50">پشتیبانی ساخته نشده است. هر شب به‌صورت خودکار پشتیبان تهیه می‌شود.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

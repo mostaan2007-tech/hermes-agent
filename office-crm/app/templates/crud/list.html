@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "macros.html" import pagination, empty with context %}
+
+{% block title %}{{ entity.title }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+  <div>
+    <h1 class="flex items-center gap-2 text-xl font-bold"><span>{{ entity.icon }}</span>{{ entity.title }}</h1>
+    <p class="mt-1 text-xs text-base-content/60">
+      {{ entity.description or "فهرست کامل با جست‌وجو، فیلتر و خروجی اکسل" }}
+    </p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2">
+    {% if entity.allow_export %}
+      <a class="btn btn-ghost btn-sm" href="{{ items_url }}/export.csv?{{ qs(query_params) }}">⬇ خروجی CSV</a>
+    {% endif %}
+    {% if can_create %}
+      <a class="btn btn-primary btn-sm" href="{{ items_url }}/new">＋ {{ entity.title_one }} جدید</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel mb-4">
+  <form method="get" action="{{ items_url }}" class="grid grid-cols-1 gap-3 p-4 md:grid-cols-4">
+    <label class="field md:col-span-2">
+      <span class="field-label">جست‌وجو</span>
+      <input name="q" value="{{ state.q or '' }}" class="input input-sm w-full"
+             placeholder="بخشی از نام، شماره یا توضیحات…">
+    </label>
+
+    {% for name, options in filter_options.items() %}
+      {% set f = entity.get_field(name) %}
+      <label class="field">
+        <span class="field-label">{{ f.label_text if f else name }}</span>
+        <select name="f_{{ name }}" class="select select-sm w-full">
+          <option value="">همه</option>
+          {% for value, label in options %}
+            <option value="{{ value }}" {% if state.filters.get(name) == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% endfor %}
+
+    {% if entity.date_filter %}
+      {% set df = entity.get_field(entity.date_filter) %}
+      <label class="field">
+        <span class="field-label">{{ df.label_text if df else "از تاریخ" }}</span>
+        <input name="from" data-jdp autocomplete="off" class="input input-sm jalali"
+               value="{{ state.from or '' }}" placeholder="۱۴۰۵/۰۱/۰۱">
+      </label>
+      <label class="field">
+        <span class="field-label">تا تاریخ</span>
+        <input name="to" data-jdp autocomplete="off" class="input input-sm jalali"
+               value="{{ state.to or '' }}" placeholder="۱۴۰۵/۱۲/۲۹">
+      </label>
+    {% endif %}
+
+    {% if entity.owner_field and can(entity.module ~ '.view_all') %}
+      <label class="field">
+        <span class="field-label">دامنه نمایش</span>
+        <select name="owner" class="select select-sm w-full">
+          <option value="">همه کاربران</option>
+          <option value="me" {% if state.owner == 'me' %}selected{% endif %}>فقط رکوردهای من</option>
+        </select>
+      </label>
+    {% endif %}
+
+    <div class="flex items-end gap-2 md:col-span-4">
+      <button class="btn btn-primary btn-sm">اعمال فیلتر</button>
+      <a class="btn btn-ghost btn-sm" href="{{ items_url }}">پاک کردن</a>
+      <span class="ms-auto self-center text-xs text-base-content/50">{{ total | fa }} رکورد یافت شد</span>
+    </div>
+  </form>
+</div>
+
+<div class="table-wrap">
+  <table class="tbl">
+    <thead>
+      <tr>
+        {% for f in list_fields %}
+          <th>
+            {% if f.sortable %}
+              {% set next_dir = 'desc' if (sort == f.name and dir == 'asc') else 'asc' %}
+              <a class="hover:text-primary" href="{{ items_url }}?{{ qs(query_params, sort=f.name, dir=next_dir, page=1) }}">
+                {{ f.label_text }}
+                {% if sort == f.name %}<span>{{ '▲' if dir == 'asc' else '▼' }}</span>{% endif %}
+              </a>
+            {% else %}{{ f.label_text }}{% endif %}
+          </th>
+        {% endfor %}
+        <th class="w-24"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        {% set c0 = cell(list_fields[0], row, refs) %}
+        <tr class="hover:bg-base-200/50" data-href="{{ items_url }}/{{ row.id }}">
+          {% for f in list_fields %}
+            {% set c = cell(f, row, refs) %}
+            <td class="{{ 'num' if c.num else '' }}">
+              {% if c.badge %}
+                <span class="badge badge-sm {{ c.badge }}">{{ c.text }}</span>
+              {% elif c.url %}
+                <a class="text-primary hover:underline" href="{{ c.url }}">{{ c.text }}</a>
+              {% else %}{{ c.text }}{% endif %}
+            </td>
+          {% endfor %}
+          <td class="text-end">
+            <div class="flex justify-end gap-1">
+              <a class="btn btn-ghost btn-xs" href="{{ items_url }}/{{ row.id }}" title="مشاهده">👁</a>
+              {% if can_edit %}
+                <a class="btn btn-ghost btn-xs" href="{{ items_url }}/{{ row.id }}/edit" title="ویرایش">✎</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="{{ list_fields | length + 1 }}">{{ empty("رکوردی مطابق فیلترها یافت نشد", "می‌توانید فیلترها را پاک کنید یا رکورد جدید ثبت کنید.") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{{ pagination({"rows": rows, "total": total, "page": page, "pages": pages}, items_url, query_params) }}
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}تقویم {{ month_name }} {{ year | fa }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div class="flex items-center gap-2">
+    <a class="btn btn-ghost btn-sm" href="/calendar?y={{ prev[0] }}&m={{ prev[1] }}" title="ماه قبل">‹</a>
+    <h1 class="text-lg font-bold">{{ month_name }} {{ year | fa }}</h1>
+    <a class="btn btn-ghost btn-sm" href="/calendar?y={{ next[0] }}&m={{ next[1] }}" title="ماه بعد">›</a>
+    {% if (year, month) != (today | jyear, jparts(today)[1]) %}
+      <a class="btn btn-ghost btn-xs" href="/calendar">امروز</a>
+    {% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="text-xs text-base-content/60">{{ today | jlong }}</span>
+    <a class="btn btn-ghost btn-sm" href="/meetings/calendar">تقویم جلسات اتاق‌ها</a>
+    {% if can('meetings.create') %}<a class="btn btn-primary btn-sm" href="/meetings/new">＋ جلسه</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-4">
+  <div class="panel xl:col-span-3">
+    <div class="panel-body p-3">
+      <table class="w-full table-fixed border-separate border-spacing-1">
+        <thead>
+          <tr>
+            {% for label in WEEKDAYS_SHORT %}
+              <th class="pb-1 text-center text-[11px] font-medium text-base-content/50">{{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in grid %}
+            <tr>
+              {% for day in week %}
+                {% set jp = jparts(day) %}
+                {% set iso = day.isoformat() %}
+                {% set items = events.get(iso, []) %}
+                {% set holiday = holidays.get(iso) %}
+                <td class="align-top">
+                  <a href="/calendar?y={{ year }}&m={{ month }}&d={{ day | jdate }}"
+                     class="block min-h-20 rounded-field border p-1
+                            {{ 'border-primary bg-primary/5' if day == today else 'border-base-200' }}
+                            {{ 'opacity-40' if jp[1] != month else '' }}
+                            {{ 'bg-error/5' if holiday else '' }} hover:bg-base-200/60">
+                    <div class="flex items-center justify-between">
+                      <span class="num text-xs {{ 'font-bold text-primary' if day == today else '' }}">{{ jp[2] | fa }}</span>
+                      {% if holiday %}<span class="text-[10px]">🏖</span>{% endif %}
+                    </div>
+                    <div class="mt-1 space-y-0.5">
+                      {% for item in items[:3] %}
+                        <div class="truncate rounded bg-base-200/70 px-1 text-[10px]" title="{{ item.title }}">
+                          {{ item.icon }} {{ item.title }}
+                        </div>
+                      {% endfor %}
+                      {% if items | length > 3 %}
+                        <div class="px-1 text-[10px] text-base-content/50">+ {{ (items | length - 3) | fa }} مورد دیگر</div>
+                      {% endif %}
+                    </div>
+                  </a>
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">{{ day_list[0] | jlong }}</h2></div>
+      <div class="panel-body space-y-2">
+        {% for item in day_list[1] %}
+          {% if item.url %}
+            <a href="{{ item.url }}" class="flex items-start gap-2 rounded-field px-2 py-1.5 hover:bg-base-200/60">
+              <span>{{ item.icon }}</span>
+              <span class="min-w-0">
+                <span class="block truncate text-sm">{{ item.title }}</span>
+                {% if item.time %}<span class="block text-[11px] text-base-content/50">{{ item.time }}</span>{% endif %}
+              </span>
+            </a>
+          {% else %}
+            <div class="flex items-start gap-2 rounded-field bg-warning/10 px-2 py-1.5">
+              <span>{{ item.icon }}</span>
+              <span class="text-sm">{{ item.title }}</span>
+            </div>
+          {% endif %}
+        {% else %}
+          {{ empty("برای این روز رویدادی ثبت نشده", None, "🗓") }}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">تعطیلات و مناسبت‌های ماه</h2></div>
+      <div class="panel-body space-y-1.5">
+        {% set month_holidays = holidays.values() | list %}
+        {% for holiday in month_holidays %}
+          <div class="flex items-center justify-between gap-2 text-sm">
+            <span>{{ holiday.title }}</span>
+            <span class="num text-[11px] text-base-content/50">{{ holiday.date | jdate }}</span>
+          </div>
+        {% else %}
+          <p class="text-xs text-base-content/50">مناسبتی برای این ماه ثبت نشده است.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">راهنما</h2></div>
+      <div class="panel-body space-y-1 text-[11px] text-base-content/60">
+        <p>👥 جلسات اتاق‌ها · ✓ سررسید وظایف · 📄 درخواست‌های تأییدشده · ✉ نامه‌های صادره · 🔔 پیگیری‌ها</p>
+        <p>روی هر روز بزنید تا فهرست کامل آن روز را ببینید.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

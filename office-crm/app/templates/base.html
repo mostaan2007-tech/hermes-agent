@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}{{ settings.app_short_name }}{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/vendor/jalalidatepicker.min.css">
+  {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-base-200 text-base-content"
+      hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'>
+
+<div class="flex min-h-screen" x-data="{ menu: false }">
+
+  {# ------------------------------------------------------------- sidebar #}
+  <aside class="app-sidebar no-print fixed inset-y-0 right-0 z-40 w-64 overflow-y-auto transition-transform lg:static lg:translate-x-0"
+         :class="menu ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'">
+    <div class="flex items-center gap-2 border-b border-base-300 px-4 py-3">
+      {% if company.logo %}
+        <img src="{{ company.logo }}" alt="لوگو" class="size-8 rounded object-contain">
+      {% else %}
+        <div class="grid size-8 place-items-center rounded bg-primary text-sm font-bold text-primary-content">دف</div>
+      {% endif %}
+      <div class="min-w-0">
+        <div class="truncate text-sm font-bold">{{ company.name or settings.app_short_name }}</div>
+        <div class="truncate text-[10px] text-base-content/50">سامانه یکپارچه CRM + اتوماسیون</div>
+      </div>
+    </div>
+
+    <nav class="px-2 pb-6">
+      {% for section in nav_sections %}
+        <div class="nav-section">{{ section.title }}</div>
+        {% for item in section["items"] %}
+          {% set active = (current_path == item.url) if item.exact else (current_path == item.url or current_path.startswith(item.url ~ '/')) %}
+          <a href="{{ item.url }}" class="nav-item {{ 'nav-item-active' if active else '' }}">
+            <span class="w-5 text-center">{{ item.icon }}</span>
+            <span class="truncate">{{ item.label }}</span>
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+  </aside>
+
+  {# -------------------------------------------------------------- content #}
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="app-topbar sticky top-0 z-30 flex items-center gap-3 border-b border-base-300 bg-base-100/95 px-4 py-2 backdrop-blur">
+      <button class="btn btn-ghost btn-sm lg:hidden" @click="menu = !menu" aria-label="منو">☰</button>
+
+      <form action="/search" method="get" class="hidden flex-1 items-center sm:flex">
+        <label class="input input-sm flex w-full max-w-md items-center gap-2">
+          <span class="text-base-content/40">🔍</span>
+          <input name="q" class="grow bg-transparent outline-none" placeholder="جست‌وجو در مشتریان، نامه‌ها، درخواست‌ها…"
+                 value="{{ request.query_params.get('q', '') if current_path == '/search' else '' }}">
+        </label>
+      </form>
+      <a href="/search" class="btn btn-ghost btn-sm sm:hidden">🔍</a>
+
+      <div class="ms-auto flex items-center gap-1">
+        <a href="/inbox" class="btn btn-ghost btn-sm" title="کارتابل من">📥</a>
+
+        <div class="relative" x-data="{ o: false }">
+          <button class="btn btn-ghost btn-sm" @click="o = !o" title="اعلان‌ها">
+            🔔
+            {% if unread_notifications %}
+              <span class="badge badge-error badge-xs">{{ unread_notifications | fa }}</span>
+            {% endif %}
+          </button>
+          <div x-show="o" x-cloak @click.outside="o = false"
+               class="absolute end-0 z-50 mt-1 w-72 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg">
+            <div class="flex items-center justify-between border-b border-base-200 px-2 pb-2">
+              <span class="text-xs font-medium">اعلان‌های خوانده‌نشده: {{ unread_notifications | fa }}</span>
+              <a class="text-[11px] text-primary hover:underline" href="/notifications">همه اعلان‌ها</a>
+            </div>
+            <div class="max-h-72 overflow-y-auto py-1 text-xs">
+              {% for note in (recent_notifications or []) %}
+                <a href="{{ note.url or '/notifications' }}" class="block rounded px-2 py-1.5 hover:bg-base-200">
+                  <div class="font-medium">{{ note.title }}</div>
+                  <div class="text-base-content/50">{{ note.created_at | reltime }}</div>
+                </a>
+              {% else %}
+                <p class="px-2 py-3 text-center text-base-content/50">اعلان جدیدی ندارید.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-ghost btn-sm gap-2">
+            <span class="grid size-6 place-items-center rounded-full bg-primary text-[10px] text-primary-content">
+              {{ user.full_name | initials if user else "؟" }}
+            </span>
+            <span class="hidden text-xs sm:inline">{{ user.full_name if user else "" }}</span>
+          </div>
+          <ul tabindex="0" class="menu dropdown-content z-50 mt-2 w-52 rounded-box border border-base-300 bg-base-100 p-1 shadow-lg">
+            <li class="menu-title text-[11px]">{{ ROLE_LABELS.get(user.role, "") if user else "" }}</li>
+            <li><a href="/profile">پروفایل من</a></li>
+            <li><a href="/profile/password">تغییر گذرواژه</a></li>
+            <li><a href="/inbox">کارتابل من</a></li>
+            <li>
+              <form method="post" action="/logout">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="text-error" type="submit">خروج از سامانه</button>
+              </form>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <main class="min-w-0 flex-1 px-4 py-4 lg:px-6">
+      {% if flashes %}
+        <div class="mb-4 space-y-2">
+          {% for flash in flashes %}
+            <div class="alert {{ flash.k | tone }} py-2 text-sm">{{ flash.m }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="no-print px-4 py-3 text-center text-[11px] text-base-content/40 lg:px-6">
+      {{ settings.app_name }} · {{ today_jalali }}
+    </footer>
+  </div>
+</div>
+
+<script src="/static/vendor/htmx.min.js" defer></script>
+<script src="/static/vendor/alpine.min.js" defer></script>
+<script src="/static/js/app.js" defer></script>
+<script src="/static/vendor/jalalidatepicker.min.js" defer></script>
+<script src="/static/js/datepicker.js" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

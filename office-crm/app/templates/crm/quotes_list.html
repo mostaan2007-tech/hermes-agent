@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}پیش‌فاکتور و فاکتور — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("پیش‌فاکتور، فاکتور و قرارداد", "اسناد مالی قابل چاپ با محاسبه خودکار مالیات و تخفیف", "🧾") %}
+  {% if can_create %}<a class="btn btn-primary btn-sm" href="/quotes/new">+ سند مالی جدید</a>{% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="stat-card"><div class="text-xs text-base-content/60">تعداد اسناد</div><div class="num mt-1 text-xl font-bold">{{ totals.count | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">جمع مبلغ</div><div class="num mt-1 text-xl font-bold">{{ totals.sum | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">دریافت‌شده</div><div class="num mt-1 text-xl font-bold text-success">{{ totals.paid | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">مانده باز</div><div class="num mt-1 text-xl font-bold text-warning">{{ totals.open | money }}</div></div>
+</div>
+
+<form method="get" action="/quotes" class="mt-3 flex flex-wrap items-center gap-2">
+  <input name="q" value="{{ params.get('q', '') }}" class="input input-sm input-bordered w-56" placeholder="شماره سند…">
+  <select name="kind" class="select select-sm select-bordered">
+    <option value="">همه انواع</option>
+    {% for value, label in kinds %}<option value="{{ value }}" {% if params.get('kind') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="status" class="select select-sm select-bordered">
+    <option value="">همه وضعیت‌ها</option>
+    {% for value, label in statuses %}<option value="{{ value }}" {% if params.get('status') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-outline btn-sm">فیلتر</button>
+  {% if params %}<a class="btn btn-ghost btn-sm" href="/quotes">پاک کردن</a>{% endif %}
+</form>
+
+<div class="table-wrap mt-3">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>شماره</th><th>نوع</th><th>مشتری</th><th>تاریخ</th>
+        <th>مبلغ کل</th><th>دریافت‌شده</th><th>مانده</th><th>وضعیت</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="hover">
+          <td><a class="num font-medium text-primary hover:underline" href="/quotes/{{ row.id }}">{{ (row.number or "—") | fa }}</a></td>
+          <td class="text-xs">{{ dict(kinds).get(row.kind, row.kind) }}</td>
+          <td class="text-xs">{{ companies.get(row.company_id, "—") }}</td>
+          <td class="num text-xs">{{ row.issue_date | jdate }}</td>
+          <td class="num text-xs">{{ row.total | money }}</td>
+          <td class="num text-xs text-success">{{ row.paid_amount | money }}</td>
+          <td class="num text-xs">{{ row.balance | money }}</td>
+          <td>{{ badge(QUOTE_STATUS_LABELS.get(row.status, row.status), "badge-" ~ QUOTE_STATUS_BADGES.get(row.status, "ghost")) }}</td>
+          <td>
+            <div class="flex items-center gap-1">
+              <a class="btn btn-ghost btn-xs" href="/quotes/{{ row.id }}/print">🖨</a>
+              {% if can("quotes.edit") %}<a class="btn btn-ghost btn-xs" href="/quotes/{{ row.id }}/edit">✎</a>{% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9">{{ empty("سند مالی ثبت نشده است", "یک پیش‌فاکتور بسازید تا اینجا نمایش داده شود.", "🧾") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

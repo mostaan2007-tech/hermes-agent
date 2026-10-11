@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>نامه {{ letter.number or "" }} — {{ company_info.name }}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <style>
+    body { background: #fff; }
+    .letter-meta { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+    .letter-meta td { border: 1px solid #cbd5e1; padding: 5px 8px; }
+    .letter-body { min-height: 320px; line-height: 2.1; text-align: justify; white-space: pre-wrap; }
+  </style>
+</head>
+<body class="p-6">
+  <div class="no-print mx-auto mb-4 flex max-w-[210mm] items-center justify-between">
+    <a class="btn btn-ghost btn-sm" href="/letters/{{ letter.id }}">← بازگشت به نامه</a>
+    <span class="flex items-center gap-2">
+      {% if PDF_AVAILABLE %}<a class="btn btn-outline btn-sm" href="/letters/{{ letter.id }}/pdf">⬇ PDF سرور</a>{% endif %}
+      <button class="btn btn-primary btn-sm" data-print>🖨 چاپ / ذخیره PDF</button>
+    </span>
+  </div>
+
+  <div class="sheet print-area">
+    <div class="flex items-start justify-between border-b border-base-300 pb-3">
+      <div class="text-center">
+        <div class="text-sm font-bold">بسمه تعالی</div>
+      </div>
+      <div class="text-center">
+        <div class="text-lg font-bold">{{ company_info.name }}</div>
+        {% if company_info.address %}<div class="text-[11px] text-base-content/70">{{ company_info.address }}</div>{% endif %}
+        <div class="text-[11px] text-base-content/70">
+          {% if company_info.phone %}تلفن: {{ company_info.phone | fa }}{% endif %}
+          {% if company_info.email %} · {{ company_info.email }}{% endif %}
+        </div>
+      </div>
+      {% if company_info.logo %}
+        <img src="{{ company_info.logo }}" alt="لوگو" class="h-16 object-contain">
+      {% else %}
+        <div class="w-16"></div>
+      {% endif %}
+    </div>
+
+    <table class="letter-meta mt-4">
+      <tbody>
+        <tr>
+          <td>شماره: <span class="num font-bold">{{ (letter.number or "………………") | fa }}</span></td>
+          <td>تاریخ: <span class="num font-bold">{{ letter.letter_date | jdate }}</span></td>
+          <td>پیوست: <span class="num">{{ (letter.registry_number or "—") | fa }}</span></td>
+        </tr>
+        <tr>
+          <td colspan="2">گیرنده: {{ letter.correspondent_org or letter.recipient_name or "—" }}</td>
+          <td>شماره عطف: <span class="num">{{ (letter.ref_number or "—") | fa }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="mb-3 text-sm font-bold">موضوع: {{ letter.subject }}</div>
+
+    <div class="letter-body text-sm">{{ letter.body or "" }}</div>
+
+    <div class="mt-8 flex items-start justify-between text-sm">
+      <div></div>
+      <div class="w-64 text-center">
+        <div class="text-xs text-base-content/70">با احترام</div>
+        {% if signatures %}
+          {% for person, item in signatures %}
+            <div class="mt-6 border-t border-base-300 pt-1 text-xs">
+              <div class="font-medium">{{ person.full_name if person else "—" }}</div>
+              {% if person and person.position %}<div class="text-base-content/60">{{ person.position }}</div>{% endif %}
+              <div class="text-base-content/60">{{ item.at | jdate if item.at else "" }}</div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="mt-12 border-t border-base-300 pt-1 text-xs text-base-content/60">مهر و امضا</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if letter.recipient_ids %}
+      <div class="mt-8 border-t border-dashed border-base-300 pt-2 text-[11px]">
+        رونوشت: {{ letter.recipient_ids | length | fa }} نفر
+      </div>
+    {% endif %}
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

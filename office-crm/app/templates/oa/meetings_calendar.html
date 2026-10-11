@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}تقویم جلسات — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("تقویم جلسات و رزرو اتاق", "نمای هفتگی اتاق‌ها؛ تداخل رزرو در زمان ثبت کنترل می‌شود", "👥") %}
+  <a class="btn btn-outline btn-sm" href="/meetings">فهرست جلسات</a>
+  <a class="btn btn-ghost btn-sm" href="/rooms">اتاق‌ها</a>
+  {% if can_create %}<a class="btn btn-primary btn-sm" href="/meetings/new">+ جلسه جدید</a>{% endif %}
+{% endcall %}
+
+<div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+  <div class="flex items-center gap-2">
+    <a class="btn btn-ghost btn-sm" href="/meetings/calendar?start={{ prev_week }}">‹ هفته قبل</a>
+    <span class="num text-sm font-bold">
+      {{ week_days[0] | jdate }} تا {{ week_days[-1] | jdate }}
+    </span>
+    <a class="btn btn-ghost btn-sm" href="/meetings/calendar?start={{ next_week }}">هفته بعد ›</a>
+    <a class="btn btn-outline btn-xs" href="/meetings/calendar">هفته جاری</a>
+  </div>
+  <span class="text-[11px] text-base-content/50">{{ rooms | length | fa }} اتاق فعال</span>
+</div>
+
+<div class="table-wrap">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th class="w-40">اتاق</th>
+        {% for day in week_days %}
+          <th class="text-center {{ 'bg-primary/10' if day == today else '' }}">
+            <div>{{ WEEKDAYS[(day.weekday() + 2) % 7] }}</div>
+            <div class="num text-[11px] font-normal">{{ day | jdate }}</div>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for room in rooms %}
+        <tr>
+          <td class="align-top">
+            <div class="text-sm font-medium">{{ room.name }}</div>
+            <div class="text-[11px] text-base-content/50">
+              ظرفیت {{ room.capacity | fa }}{% if room.location %} · {{ room.location }}{% endif %}
+            </div>
+            {% if room.equipment %}<div class="text-[10px] text-base-content/45">{{ room.equipment }}</div>{% endif %}
+          </td>
+          {% for day in week_days %}
+            <td class="align-top {{ 'bg-primary/5' if day == today else '' }}">
+              <div class="space-y-1">
+                {% for meeting in grid.get(room.id, {}).get(day.isoformat(), []) %}
+                  <a class="block rounded-field border border-base-200 bg-base-100 px-2 py-1 text-[11px] hover:border-primary"
+                     href="/meetings/{{ meeting.id }}">
+                    <div class="font-medium">{{ meeting.title }}</div>
+                    <div class="num text-base-content/55">{{ meeting.start_at | jdt }} تا {{ meeting.end_at | jdt }}</div>
+                  </a>
+                {% endfor %}
+                {% if can_create %}
+                  <a class="block text-center text-[10px] text-base-content/35 hover:text-primary"
+                     href="/meetings/new">+ رزرو</a>
+                {% endif %}
+              </div>
+            </td>
+          {% endfor %}
+        </tr>
+      {% else %}
+        <tr><td colspan="8">{{ empty("اتاقی تعریف نشده است", "از بخش اتاق جلسات، اتاق‌های سازمان را تعریف کنید.", "🏢") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if unscheduled %}
+  <div class="panel mt-4">
+    <div class="panel-head"><h2 class="text-sm font-medium">جلسات بدون اتاق در این هفته</h2></div>
+    <div class="panel-body space-y-2">
+      {% for meeting in unscheduled %}
+        <div class="flex items-center justify-between gap-2 text-sm">
+          <a class="min-w-0 truncate hover:underline" href="/meetings/{{ meeting.id }}">{{ meeting.title }}</a>
+          <span class="num whitespace-nowrap text-[11px] text-base-content/55">{{ meeting.start_at | jdt }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

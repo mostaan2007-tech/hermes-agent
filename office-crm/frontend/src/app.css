@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: false;
+}
+
+/* Theme: "office" — calm, professional, high contrast for long working days.
+   daisyUI v5 themes are declared with CSS custom properties. */
+@plugin "daisyui/theme" {
+  name: "office";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(97.5% 0.004 250);
+  --color-base-300: oklch(93.5% 0.008 250);
+  --color-base-content: oklch(26% 0.02 255);
+
+  --color-primary: oklch(48% 0.115 254);
+  --color-primary-content: oklch(98% 0.01 254);
+  --color-secondary: oklch(52% 0.09 190);
+  --color-secondary-content: oklch(98% 0.01 190);
+  --color-accent: oklch(62% 0.13 160);
+  --color-accent-content: oklch(98% 0.01 160);
+
+  --color-neutral: oklch(34% 0.02 255);
+  --color-neutral-content: oklch(97% 0.005 255);
+
+  --color-info: oklch(62% 0.11 235);
+  --color-info-content: oklch(98% 0.01 235);
+  --color-success: oklch(60% 0.13 155);
+  --color-success-content: oklch(98% 0.01 155);
+  --color-warning: oklch(76% 0.14 75);
+  --color-warning-content: oklch(26% 0.05 75);
+  --color-error: oklch(58% 0.19 25);
+  --color-error-content: oklch(98% 0.01 25);
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@source "../../app/templates/**/*.html";
+@source "../../app/static/js/**/*.js";
+
+/* ------------------------------------------------------------------ Fonts */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/Vazirmatn-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/Vazirmatn-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("../fonts/Vazirmatn-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, "Segoe UI", Tahoma, sans-serif;
+}
+
+/* ------------------------------------------------------------------ Base */
+html {
+  font-family: var(--font-sans);
+}
+
+/* Persian digits read better with slightly looser tracking in Latin-heavy rows */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ Shell */
+.app-sidebar {
+  @apply bg-base-200 border-e border-base-300;
+}
+
+.nav-item {
+  @apply flex items-center gap-2 rounded-field px-3 py-2 text-sm text-base-content/80
+         hover:bg-base-300 hover:text-base-content transition-colors;
+}
+.nav-item-active {
+  @apply bg-primary text-primary-content hover:bg-primary hover:text-primary-content font-medium;
+}
+.nav-section {
+  @apply px-3 pt-4 pb-1 text-[11px] font-medium tracking-wide text-base-content/45;
+}
+
+/* ------------------------------------------------------------------ Cards */
+.stat-card {
+  @apply rounded-box border border-base-300 bg-base-100 p-4;
+}
+.panel {
+  @apply rounded-box border border-base-300 bg-base-100;
+}
+.panel-head {
+  @apply flex items-center justify-between gap-3 border-b border-base-300 px-4 py-3;
+}
+.panel-body {
+  @apply p-4;
+}
+
+/* Kanban */
+.kanban-col {
+  @apply flex w-72 shrink-0 flex-col gap-2 rounded-box border border-base-300 bg-base-200/60 p-2;
+}
+.kanban-card {
+  @apply cursor-grab rounded-field border border-base-300 bg-base-100 p-3 text-sm shadow-xs;
+}
+.kanban-card.dragging {
+  @apply opacity-40;
+}
+.kanban-over {
+  @apply ring-2 ring-primary/40;
+}
+
+/* Timeline (360° customer file, audit trail) */
+.tl {
+  @apply relative border-s border-base-300 ps-4;
+}
+.tl-item {
+  @apply relative pb-4;
+}
+.tl-item::before {
+  content: "";
+  @apply absolute -start-[21px] top-1.5 size-2.5 rounded-full border-2 border-base-100 bg-primary;
+}
+
+/* Tables */
+.table-wrap {
+  @apply overflow-x-auto rounded-box border border-base-300 bg-base-100;
+}
+.tbl {
+  @apply table table-sm w-full;
+}
+.tbl thead th {
+  @apply bg-base-200/70 text-xs font-medium text-base-content/70 whitespace-nowrap;
+}
+.tbl td {
+  @apply align-middle;
+}
+
+/* Forms */
+.form-grid {
+  @apply grid grid-cols-1 gap-4 md:grid-cols-3;
+}
+.field {
+  @apply flex flex-col gap-1;
+}
+.field-label {
+  @apply text-xs font-medium text-base-content/70;
+}
+.field-hint {
+  @apply text-[11px] text-base-content/50;
+}
+.field-error {
+  @apply text-[11px] text-error;
+}
+
+/* Jalali date input: keep the native-looking box tidy */
+input.jalali {
+  direction: rtl;
+}
+
+/* ------------------------------------------------------------------ Print */
+@media print {
+  .no-print,
+  .app-sidebar,
+  .app-topbar,
+  .app-toast {
+    display: none !important;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .page-break {
+    break-after: page;
+  }
+  @page {
+    margin: 14mm;
+  }
+}
+
+/* Letterhead sheet used for letters / quotes / invoices */
+.sheet {
+  @apply mx-auto max-w-[210mm] bg-base-100 p-10 leading-8;
+}
+.sheet-head {
+  @apply mb-6 flex items-start justify-between border-b border-base-300 pb-4;
+}
+.sheet-title {
+  @apply mb-4 text-center text-lg font-bold;
+}
+.sheet-body {
+  @apply min-h-40 whitespace-pre-wrap text-justify;
+}
+.sheet-sign {
+  @apply mt-10 flex justify-between text-sm;
+}
+
+/* Rich text-ish letter body editing */
+textarea.letter-body {
+  @apply min-h-72 leading-8;
+}
+
+[dir="rtl"] .ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+/* Small SVG sparklines / bar charts draw with currentColor */
+.chart-bar {
+  fill: currentColor;
+}

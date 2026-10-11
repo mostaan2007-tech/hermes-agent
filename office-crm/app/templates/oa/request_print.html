@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>درخواست {{ row.number or row.id }} — {{ company_info.name }}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <style>
+    body { background: #fff; }
+    .rq-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .rq-table th, .rq-table td { border: 1px solid #cbd5e1; padding: 6px 9px; vertical-align: top; }
+    .rq-table th { background: #f1f5f9; width: 32%; font-weight: 500; text-align: right; }
+    .sign-box { border: 1px solid #cbd5e1; min-height: 90px; padding: 6px; font-size: 11px; }
+  </style>
+</head>
+<body class="p-6">
+  <div class="no-print mx-auto mb-4 flex max-w-[210mm] items-center justify-between">
+    <a class="btn btn-ghost btn-sm" href="/requests/{{ row.id }}">← بازگشت</a>
+    <span class="flex items-center gap-2">
+      {% if PDF_AVAILABLE %}<a class="btn btn-outline btn-sm" href="/requests/{{ row.id }}/pdf">⬇ PDF سرور</a>{% endif %}
+      <button class="btn btn-primary btn-sm" data-print>🖨 چاپ / ذخیره PDF</button>
+    </span>
+  </div>
+
+  <div class="sheet print-area">
+    <div class="mb-4 flex items-start justify-between border-b border-base-300 pb-3">
+      <div class="text-sm font-bold">{{ company_info.name }}</div>
+      {% if company_info.logo %}<img src="{{ company_info.logo }}" alt="لوگو" class="h-14 object-contain">{% endif %}
+    </div>
+
+    <div class="sheet-title">فرم درخواست {{ type_.name if type_ else "" }}</div>
+
+    <table class="rq-table mb-4">
+      <tbody>
+        <tr><th>شماره درخواست</th><td class="num">{{ (row.number or "—") | fa }}</td></tr>
+        <tr><th>متقاضی</th><td>{{ requester.full_name if requester else "—" }}</td></tr>
+        <tr><th>نوع درخواست</th><td>{{ type_.name if type_ else "—" }}</td></tr>
+        <tr><th>تاریخ ثبت</th><td class="num">{{ row.created_at | jdate }}</td></tr>
+        <tr><th>موضوع</th><td>{{ row.subject }}</td></tr>
+        {% if row.start_date %}
+          <tr><th>بازه</th><td class="num">{{ row.start_date | jdate }}{% if row.end_date and row.end_date != row.start_date %} تا {{ row.end_date | jdate }}{% endif %}</td></tr>
+        {% endif %}
+        {% if row.duration_days %}<tr><th>مدت (روز)</th><td class="num">{{ row.duration_days | fa }}</td></tr>{% endif %}
+        {% if row.amount %}<tr><th>مبلغ</th><td class="num">{{ row.amount | money }}</td></tr>{% endif %}
+        {% for field in payload_fields %}
+          {% set value = (row.payload or {}).get(field.name) %}
+          {% if value %}<tr><th>{{ field.label }}</th><td>{{ value }}</td></tr>{% endif %}
+        {% endfor %}
+        <tr><th>وضعیت</th><td>{{ REQUEST_STATUS_LABELS.get(row.status, row.status) }}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="mb-2 text-xs font-medium">نظر و امضای تأییدکنندگان</div>
+    <div class="grid grid-cols-2 gap-3">
+      {% for item in steps %}
+        <div class="sign-box">
+          <div class="font-medium">{{ item.step.order_index | fa }}. {{ item.step.title or "تأیید" }}</div>
+          <div class="text-base-content/70">{{ item.approver.full_name if item.approver else "—" }}</div>
+          <div class="mt-1">
+            {% if item.step.decision == "approved" %}تأیید شد{% elif item.step.decision == "rejected" %}رد شد{% else %}———————{% endif %}
+          </div>
+          {% if item.step.decided_at %}<div class="num text-base-content/60">{{ item.step.decided_at | jdate }}</div>{% endif %}
+        </div>
+      {% else %}
+        <div class="sign-box">تأییدکننده‌ای ثبت نشده است.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

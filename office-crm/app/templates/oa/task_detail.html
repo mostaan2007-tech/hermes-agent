@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, comments_block, files_block, progress with context %}
+
+{% block title %}{{ row.title }} — وظیفه{% endblock %}
+
+{% block content %}
+{% set label, tone = due(row.due_date) %}
+{% call page_header(row.title, "وظیفه " ~ TASK_STATUS_LABELS.get(row.status, row.status) ~ " · " ~ label, "✓") %}
+  <a class="btn btn-ghost btn-sm" href="/tasks/mine">وظایف من</a>
+  <a class="btn btn-ghost btn-sm" href="/tasks/board">تخته وظایف</a>
+  <a class="btn btn-outline btn-sm" href="/tasks/{{ row.id }}/edit">✎ ویرایش</a>
+  {% if can("tasks.edit") %}
+    <form method="post" action="/tasks/{{ row.id }}/status" class="flex items-center gap-1">
+      <input type="hidden" name="next" value="/tasks/{{ row.id }}">
+      <select name="status" class="select select-xs">
+        {% for value, lbl in TASK_STATUSES %}
+          <option value="{{ value }}" {% if row.status == value %}selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-outline btn-xs">تغییر وضعیت</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-4 lg:col-span-2">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">شرح وظیفه</h2>
+        <div class="flex items-center gap-2">
+          {{ badge(PRIORITY_LABELS.get(row.priority, row.priority), "badge-" ~ PRIORITY_BADGES.get(row.priority, "ghost")) }}
+          {{ progress(row.progress) }}
+        </div>
+      </div>
+      <div class="panel-body whitespace-pre-wrap text-sm">{{ row.description or "شرحی ثبت نشده است." }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">زمان‌بندی</h2></div>
+      <div class="panel-body grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+        <div><div class="text-[11px] text-base-content/55">شروع</div><div class="num">{{ row.start_date | jdate }}</div></div>
+        <div><div class="text-[11px] text-base-content/55">سررسید</div><div class="num {{ 'text-error' if tone == 'late' else ('text-warning' if tone == 'soon' else '') }}">{{ row.due_date | jdate }}</div></div>
+        <div><div class="text-[11px] text-base-content/55">برآورد (ساعت)</div><div class="num">{{ (row.estimate_hours | fa) if row.estimate_hours else "—" }}</div></div>
+        <div><div class="text-[11px] text-base-content/55">صرف‌شده (ساعت)</div><div class="num">{{ (row.spent_hours | fa) if row.spent_hours else "—" }}</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مراجع مرتبط</h2>
+        <span class="text-[11px] text-base-content/50">وظیفه می‌تواند به فروش و اتوماسیون اداری وصل باشد</span></div>
+      <div class="panel-body grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+        {% if company %}<a class="rounded-field border border-base-200 px-3 py-2 hover:border-primary" href="/companies/{{ company.id }}">🏢 {{ company.name }}</a>{% endif %}
+        {% if deal %}<a class="rounded-field border border-base-200 px-3 py-2 hover:border-primary" href="/deals/{{ deal.id }}">📊 {{ deal.title }}</a>{% endif %}
+        {% if letter %}<a class="rounded-field border border-base-200 px-3 py-2 hover:border-primary" href="/letters/{{ letter.id }}">✉ {{ letter.subject }}</a>{% endif %}
+        {% if request %}<a class="rounded-field border border-base-200 px-3 py-2 hover:border-primary" href="/requests/{{ request.id }}">📄 {{ request.subject }}</a>{% endif %}
+        {% if not (company or deal or letter or request) %}
+          <p class="text-xs text-base-content/50">به پرونده‌ای متصل نیست.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("وضعیت", TASK_STATUS_LABELS.get(row.status, row.status)) }}
+        {{ kv("اولویت", PRIORITY_LABELS.get(row.priority, row.priority)) }}
+        {{ kv("مسئول", assignee.full_name if assignee else None) }}
+        {{ kv("ایجادکننده", creator.full_name if creator else None) }}
+        {{ kv("تاریخ ایجاد", row.created_at | jdt) }}
+        {{ kv("اتمام", row.completed_at | jdt if row.completed_at else None) }}
+        {{ kv("برچسب‌ها", row.tags) }}
+      </div>
+    </div>
+    {{ files_block(files, "task", row.id, "/tasks/" ~ row.id) }}
+    {{ comments_block("task", row.id, comments, "/tasks/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

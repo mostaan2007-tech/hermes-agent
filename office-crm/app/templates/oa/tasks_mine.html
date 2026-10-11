@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header, progress with context %}
+
+{% block title %}وظایف من — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("وظایف من", "کارهای واگذارشده به شما، به‌ترتیب سررسید", "✓") %}
+  <a class="btn btn-outline btn-sm" href="/tasks/board">تخته وظایف</a>
+  <a class="btn btn-ghost btn-sm" href="/tasks">همه وظایف</a>
+  {% if can("tasks.create") %}<a class="btn btn-primary btn-sm" href="/tasks/new">+ وظیفه جدید</a>{% endif %}
+{% endcall %}
+
+{% set open_rows = rows | rejectattr("status", "equalto", "done") | list %}
+{% set done_rows = rows | selectattr("status", "equalto", "done") | list %}
+
+<div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+  <div class="stat-card"><div class="text-xs text-base-content/60">باز</div><div class="num mt-1 text-xl font-bold">{{ open_rows | length | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">عقب‌افتاده</div>
+    <div class="num mt-1 text-xl font-bold text-error">
+      {{ open_rows | selectattr("due_date") | selectattr("due_date", "lt", today) | list | length | fa }}
+    </div>
+  </div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">امروز</div>
+    <div class="num mt-1 text-xl font-bold text-warning">
+      {{ open_rows | selectattr("due_date", "equalto", today) | list | length | fa }}
+    </div>
+  </div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">انجام‌شده</div><div class="num mt-1 text-xl font-bold text-success">{{ done_rows | length | fa }}</div></div>
+</div>
+
+<div class="panel mt-4">
+  <div class="panel-head"><h2 class="text-sm font-medium">کارهای باز</h2><span class="text-[11px] text-base-content/50">برای ثبت انجام، دکمه ✓ را بزنید</span></div>
+  <div class="divide-y divide-base-200">
+    {% for task in open_rows %}
+      {% set label, tone = due(task.due_date) %}
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <a class="text-sm font-medium hover:text-primary hover:underline" href="/tasks/{{ task.id }}">{{ task.title }}</a>
+            {{ badge(TASK_STATUS_LABELS.get(task.status, task.status), "badge-" ~ TASK_STATUS_BADGES.get(task.status, "ghost")) }}
+            {{ badge(PRIORITY_LABELS.get(task.priority, task.priority), "badge-" ~ PRIORITY_BADGES.get(task.priority, "ghost")) }}
+          </div>
+          <div class="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-base-content/55">
+            <span class="{{ {'late': 'text-error', 'soon': 'text-warning'}.get(tone, '') }}">⏱ {{ label }}</span>
+            {% if task.company_id %}<a class="hover:underline" href="/companies/{{ task.company_id }}">🏢 {{ companies.get(task.company_id, "—") }}</a>{% endif %}
+            {% if task.deal_id %}<a class="hover:underline" href="/deals/{{ task.deal_id }}">📊 فرصت فروش</a>{% endif %}
+            {% if task.progress %}<span>{{ progress(task.progress) }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <form method="post" action="/tasks/{{ task.id }}/status">
+            <input type="hidden" name="next" value="/tasks/mine">
+            <select name="status" class="select select-xs" onchange="this.form.requestSubmit()">
+              {% for value, lbl in statuses %}
+                <option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </form>
+          <form method="post" action="/tasks/{{ task.id }}/status">
+            <input type="hidden" name="status" value="done">
+            <input type="hidden" name="next" value="/tasks/mine">
+            <button class="btn btn-success btn-xs">✓ انجام شد</button>
+          </form>
+          <a class="btn btn-ghost btn-xs" href="/tasks/{{ task.id }}/edit">✎</a>
+        </div>
+      </div>
+    {% else %}
+      {{ empty("وظیفه بازی ندارید", "همه کارها انجام شده است.", "🎉") }}
+    {% endfor %}
+  </div>
+</div>
+
+{% if done_rows %}
+  <div class="panel mt-4">
+    <div class="panel-head"><h2 class="text-sm font-medium">انجام‌شده‌های اخیر</h2></div>
+    <div class="divide-y divide-base-200">
+      {% for task in done_rows[:15] %}
+        <div class="flex items-center justify-between gap-2 px-4 py-2 text-sm">
+          <a class="min-w-0 truncate hover:underline" href="/tasks/{{ task.id }}">{{ task.title }}</a>
+          <span class="whitespace-nowrap text-[11px] text-base-content/50">{{ task.completed_at | reltime }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

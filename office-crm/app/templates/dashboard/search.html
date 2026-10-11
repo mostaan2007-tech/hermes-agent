@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}جست‌وجو{% if query %} — {{ query }}{% endif %}{% endblock %}
+
+{% block content %}
+{% call page_header("جست‌وجو در سامانه", "مشتریان، مخاطبین، فرصت‌ها، نامه‌ها، درخواست‌ها، وظایف، اسناد و جلسات — یکجا", "🔍") %}
+  <form method="get" action="/search" class="flex items-center gap-2">
+    <input name="q" value="{{ query }}" class="input input-sm w-56" placeholder="حداقل ۲ حرف…" autofocus>
+    <button class="btn btn-primary btn-sm">جست‌وجو</button>
+  </form>
+{% endcall %}
+
+{% if not query %}
+  <div class="panel">
+    {{ empty("عبارت جست‌وجو را وارد کنید", "برای نمونه: نام مشتری، شماره نامه، موضوع درخواست یا عنوان سند.", "🔍") }}
+  </div>
+{% elif query | length < 2 %}
+  <div class="panel">{{ empty("عبارت کوتاه است", "برای جست‌وجو حداقل ۲ حرف وارد کنید.", "⌨️") }}</div>
+{% elif not results %}
+  <div class="panel">{{ empty("چیزی پیدا نشد", "عبارت دیگری را امتحان کنید.", "🤷") }}</div>
+{% else %}
+  <p class="mb-3 text-xs text-base-content/60">{{ total | fa }} نتیجه برای «{{ query }}»</p>
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    {% for slug, items in results.items() %}
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="text-sm font-medium">{{ items[0][2] }} {{ {"companies": "شرکت‌ها", "contacts": "مخاطبین", "leads": "سرنخ‌ها", "deals": "فرصت‌های فروش", "letters": "نامه‌ها", "requests": "درخواست‌ها", "tasks": "وظایف", "documents": "اسناد", "meetings": "جلسات", "quotes": "اسناد مالی", "products": "کالاها و خدمات"}.get(slug, slug) }} <span class="text-xs text-base-content/50">({{ items | length | fa }})</span></h2>
+          <a class="text-xs text-primary hover:underline" href="/{{ slug }}">فهرست کامل</a>
+        </div>
+        <div class="panel-body p-0">
+          {% for row, url, icon in items %}
+            <a href="{{ url }}" class="flex items-center gap-2 border-b border-base-200 px-4 py-2 last:border-0 hover:bg-base-200/60">
+              <span class="min-w-0 flex-1 truncate text-sm">
+                {{ row.name or row.title or row.subject or row.full_name or row.number or ("#" ~ row.id) }}
+              </span>
+              {% if row.status %}
+                {{ badge(row.status, "badge-ghost") }}
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, timeline as timeline_macro, comments_block, files_block with context %}
+
+{% block title %}{{ row.full_name }} — مخاطب{% endblock %}
+
+{% block content %}
+{% call page_header(row.full_name, (row.job_title or "سمت ثبت نشده") ~ ((" · " ~ company.name) if company else ""), "👤") %}
+  <a class="btn btn-ghost btn-sm" href="/contacts">فهرست مخاطبین</a>
+  <a class="btn btn-outline btn-sm" href="/contacts/{{ row.id }}/edit">✎ ویرایش</a>
+  {% if company %}<a class="btn btn-outline btn-sm" href="/companies/{{ company.id }}">🏢 پرونده شرکت</a>{% endif %}
+  {% if can("crm.create") %}<a class="btn btn-outline btn-sm" href="/activities/new?contact_id={{ row.id }}">+ پیگیری</a>{% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-4 lg:col-span-2">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="stat-card"><div class="text-xs text-base-content/60">پیگیری‌ها</div><div class="num mt-1 text-lg font-bold">{{ activities | length | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">فرصت‌ها</div><div class="num mt-1 text-lg font-bold">{{ deals | length | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">نامه‌ها</div><div class="num mt-1 text-lg font-bold">{{ letters | length | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">وضعیت</div><div class="mt-1">
+        {{ badge(CONTACT_STATUS_LABELS.get(row.status, row.status), "badge-ghost") }}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">ارتباط‌ها</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("تلفن ثابت", row.phone | fa) }}
+        {{ kv("تلفن همراه", row.mobile | fa) }}
+        {{ kv("ایمیل", row.email) }}
+        {{ kv("وب‌سایت", row.website) }}
+        {{ kv("نشانی", row.address) }}
+        {{ kv("تاریخ تولد", row.birth_date | jdate if row.birth_date else None) }}
+        {{ kv("برچسب‌ها", row.tags) }}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">پیگیری‌ها و فرصت‌ها</h2></div>
+      <div class="panel-body space-y-2">
+        {% for item in activities %}
+          <div class="flex items-center justify-between gap-2 rounded-field border border-base-200 px-3 py-2">
+            <div class="min-w-0">
+              <a class="text-sm hover:underline" href="/activities/{{ item.id }}">{{ ACTIVITY_KIND_ICONS.get(item.kind, "🔔") }} {{ item.subject }}</a>
+              <div class="text-[11px] text-base-content/55">{{ item.due_at | jdt }} · {{ users.get(item.owner_id, "—") }}</div>
+            </div>
+            {{ badge(ACTIVITY_STATUS_LABELS.get(item.status, item.status), "badge-" ~ ACTIVITY_STATUS_BADGES.get(item.status, "ghost")) }}
+          </div>
+        {% endfor %}
+        {% for deal in deals %}
+          <div class="flex items-center justify-between gap-2 rounded-field border border-base-200 px-3 py-2">
+            <a class="min-w-0 truncate text-sm hover:underline" href="/deals/{{ deal.id }}">📊 {{ deal.title }}</a>
+            <span class="num text-[11px]">{{ deal.amount | money }}</span>
+          </div>
+        {% endfor %}
+        {% if not activities and not deals %}
+          <p class="text-xs text-base-content/50">فعالیتی ثبت نشده است.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">خط زمانی</h2></div>
+      <div class="panel-body">{{ timeline_macro(timeline) }}</div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات</h2></div>
+      <div class="panel-body">
+        {% for field in fields %}{{ kv(field.label_text, cell(field, row, refs).text) }}{% endfor %}
+      </div>
+    </div>
+    {{ files_block(files, "contact", row.id, "/contacts/" ~ row.id) }}
+    {{ comments_block("contact", row.id, comments, "/contacts/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

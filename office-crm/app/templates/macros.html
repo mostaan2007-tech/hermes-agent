@@ -1,0 +1,298 @@
+{#- Reusable UI pieces. Import with context:
+    {% from "macros.html" import field, badge, stat with context %} -#}
+
+{% macro badge(text, cls="badge-ghost", icon=None) -%}
+  <span class="badge badge-sm {{ cls }} whitespace-nowrap">{{ icon or "" }}{{ text }}</span>
+{%- endmacro %}
+
+{% macro stat(label, value, icon="▤", hint=None, tone="text-primary", href=None) -%}
+  <div class="stat-card">
+    <div class="flex items-start justify-between gap-2">
+      <span class="text-xs text-base-content/60">{{ label }}</span>
+      <span class="text-lg leading-none">{{ icon }}</span>
+    </div>
+    <div class="mt-2 text-2xl font-bold {{ tone }}">
+      {% if href %}<a class="hover:underline" href="{{ href }}">{{ value }}</a>{% else %}{{ value }}{% endif %}
+    </div>
+    {% if hint %}<div class="mt-1 text-[11px] text-base-content/50">{{ hint }}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro empty(title="موردی ثبت نشده است", hint=None, icon="🗂") -%}
+  <div class="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+    <div class="text-3xl opacity-40">{{ icon }}</div>
+    <div class="text-sm font-medium text-base-content/70">{{ title }}</div>
+    {% if hint %}<div class="text-xs text-base-content/50">{{ hint }}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro page_header(title, subtitle=None, icon=None) -%}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="flex items-center gap-2 text-xl font-bold">
+        {% if icon %}<span>{{ icon }}</span>{% endif %}{{ title }}
+      </h1>
+      {% if subtitle %}<p class="mt-1 text-xs text-base-content/60">{{ subtitle }}</p>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-2">{{ caller() if caller else "" }}</div>
+  </div>
+{%- endmacro %}
+
+{% macro kv(label, value, tone="") -%}
+  <div class="flex flex-col gap-0.5 border-b border-base-200 py-2 last:border-0 sm:flex-row sm:items-center sm:gap-3">
+    <span class="w-40 shrink-0 text-xs text-base-content/55">{{ label }}</span>
+    <span class="text-sm {{ tone }}">{{ value if value not in (None, "") else "—" }}</span>
+  </div>
+{%- endmacro %}
+
+{% macro progress(value) -%}
+  <div class="flex items-center gap-2">
+    <progress class="progress progress-primary h-1.5 w-16" value="{{ value or 0 }}" max="100"></progress>
+    <span class="num text-[11px] text-base-content/60">{{ value or 0 | fa }}٪</span>
+  </div>
+{%- endmacro %}
+
+{#- ---------------------------------------------------------- form fields -#}
+
+{% macro field(f, value=None, error=None, options=None) -%}
+  {% set invalid = "select-error" if error and f.type in ("select",) else "" %}
+  {% set invalid_input = "input-error" if error and f.type not in ("select", "textarea") else "" %}
+  <div class="field {{ 'md:col-span-3' if f.col_span == 3 else ('md:col-span-2' if f.col_span == 2 else '') }}">
+    {% if f.type == "bool" %}
+      <label class="flex cursor-pointer items-center gap-2 pt-5">
+        <input type="checkbox" name="{{ f.name }}" class="toggle toggle-sm toggle-primary"
+               value="1" {% if value %}checked{% endif %}>
+        <span class="text-sm">{{ f.label_text }}</span>
+      </label>
+      {% if f.help %}<span class="field-hint">{{ f.help }}</span>{% endif %}
+    {% else %}
+      <label class="field-label" for="f-{{ f.name }}">
+        {{ f.label_text }}{% if f.required %}<span class="text-error"> *</span>{% endif %}
+      </label>
+
+      {% if f.type == "select" %}
+        <select id="f-{{ f.name }}" name="{{ f.name }}" class="select select-sm w-full {{ invalid }}">
+          {% if not f.required %}<option value="">— انتخاب کنید —</option>{% endif %}
+          {% for opt_value, opt_label in (f.choices or []) %}
+            <option value="{{ opt_value }}" {% if value == opt_value %}selected{% endif %}>{{ opt_label }}</option>
+          {% endfor %}
+        </select>
+
+      {% elif f.type == "ref" %}
+        <select id="f-{{ f.name }}" name="{{ f.name }}" class="select select-sm w-full">
+          <option value="">— انتخاب کنید —</option>
+          {% for opt_value, opt_label in (options or []) %}
+            <option value="{{ opt_value }}" {% if value is not none and value|string == opt_value|string %}selected{% endif %}>{{ opt_label }}</option>
+          {% endfor %}
+        </select>
+
+      {% elif f.type == "ref_multi" %}
+        <div x-data="multiSelect({{ (value or []) | tojson }})" class="rounded-field border border-base-300 p-2">
+          <div class="mb-2 flex flex-wrap gap-1" x-show="selected.length">
+            <template x-for="id in selected" :key="id">
+              <span class="badge badge-sm badge-primary gap-1">
+                <span x-text="labelOf(id)"></span>
+                <button type="button" class="text-xs" @click="remove(id)">✕</button>
+                <input type="hidden" name="{{ f.name }}" :value="id">
+              </span>
+            </template>
+          </div>
+          <select class="select select-xs w-full" @change="add($event.target.value); $event.target.value=''">
+            <option value="">+ افزودن</option>
+            {% for opt_value, opt_label in (options or []) %}
+              <option value="{{ opt_value }}" x-show="!selected.includes({{ opt_value }})">{{ opt_label }}</option>
+            {% endfor %}
+          </select>
+          <script type="application/json" data-options>{{ (options or []) | tojson }}</script>
+        </div>
+
+      {% elif f.type == "textarea" %}
+        <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="{{ f.rows }}"
+                  class="textarea textarea-bordered w-full text-sm {{ 'letter-body' if f.css == 'letter-body' else '' }}"
+                  placeholder="{{ f.placeholder or '' }}">{{ value or "" }}</textarea>
+
+      {% elif f.type == "date" %}
+        <input id="f-{{ f.name }}" name="{{ f.name }}" data-jdp autocomplete="off"
+               class="input input-sm w-full jalali {{ invalid_input }}"
+               placeholder="۱۴۰۵/۰۷/۱۹" value="{{ value | jdate if value else '' }}">
+
+      {% elif f.type == "datetime" %}
+        <input id="f-{{ f.name }}" name="{{ f.name }}" data-jdp autocomplete="off"
+               class="input input-sm w-full jalali {{ invalid_input }}"
+               placeholder="۱۴۰۵/۰۷/۱۹ ۱۴:۳۰" value="{{ value | jdt if value else '' }}">
+
+      {% elif f.type == "bool" %}
+        <input type="checkbox" name="{{ f.name }}" value="1">
+
+      {% elif f.type == "color" %}
+        <select name="{{ f.name }}" class="select select-sm w-full">
+          {% for opt_value, opt_label in [("primary","آبی"),("secondary","فیروزه‌ای"),("accent","سبز"),("warning","نارنجی"),("error","قرمز"),("neutral","خاکستری")] %}
+            <option value="{{ opt_value }}" {% if value == opt_value %}selected{% endif %}>{{ opt_label }}</option>
+          {% endfor %}
+        </select>
+
+      {% elif f.type in ("number", "money") %}
+        <label class="input input-sm flex w-full items-center gap-1 {{ invalid_input }}">
+          <input name="{{ f.name }}" inputmode="decimal" class="grow bg-transparent outline-none"
+                 value="{{ value | faint if value not in (None, '') else '' }}"
+                 placeholder="{{ f.placeholder or '۰' }}">
+          {% if f.type == "money" %}<span class="text-[11px] text-base-content/50">{{ settings.currency }}</span>{% endif %}
+        </label>
+
+      {% elif f.type == "tags" %}
+        <input id="f-{{ f.name }}" name="{{ f.name }}" class="input input-sm w-full"
+               placeholder="با کاما جدا کنید" value="{{ value or '' }}">
+
+      {% else %}
+        <input id="f-{{ f.name }}" name="{{ f.name }}" type="{{ 'email' if f.type == 'email' else ('tel' if f.type == 'phone' else ('url' if f.type == 'url' else 'text')) }}"
+               class="input input-sm w-full {{ invalid_input }}" placeholder="{{ f.placeholder or '' }}"
+               value="{{ value or '' }}">
+      {% endif %}
+
+      {% if error %}<span class="field-error">{{ error }}</span>{% endif %}
+      {% if f.help and f.type != "bool" %}<span class="field-hint">{{ f.help }}</span>{% endif %}
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro detail_row(f, row, refs) -%}
+  {% set c = cell(f, row, refs) %}
+  {{ kv(f.label_text, c.text if c.url == None else None) }}
+  {% if c.url %}<a class="-mt-2 mb-1 text-sm text-primary hover:underline" href="{{ c.url }}">{{ c.text }}</a>{% endif %}
+{%- endmacro %}
+
+{#- ------------------------------------------------------------ pagination -#}
+
+{% macro pagination(data, base_url, params) -%}
+  {% if data.pages > 1 %}
+    {% set query = [] %}
+    <div class="mt-3 flex items-center justify-between gap-3 text-xs">
+      <span class="text-base-content/60">صفحه {{ data.page | fa }} از {{ data.pages | fa }} — {{ data.total | fa }} رکورد</span>
+      <div class="join">
+        {% for p in range(1, data.pages + 1) %}
+          {% if p <= 2 or p > data.pages - 2 or (p >= data.page - 1 and p <= data.page + 1) %}
+            <a class="join-item btn btn-xs {{ 'btn-primary' if p == data.page else 'btn-ghost' }}"
+               href="{{ base_url }}?{{ qs(params, page=p) }}">{{ p | fa }}</a>
+          {% elif p == 3 or p == data.pages - 2 %}
+            <span class="join-item btn btn-xs btn-disabled">…</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="mt-3 text-xs text-base-content/50">{{ data.total | fa }} رکورد</div>
+  {% endif %}
+{%- endmacro %}
+
+
+
+{#- ------------------------------------------------------------- workflows -#}
+
+{% macro comments_block(entity_type, entity_id, comments_list, next_url) -%}
+  <div class="panel">
+    <div class="panel-head"><h3 class="text-sm font-medium">یادداشتها ({{ comments_list | length | fa }})</h3></div>
+    <div class="panel-body space-y-3">
+      {% for item in comments_list %}
+        <div class="rounded-field bg-base-200/60 p-2 text-sm">
+          <div class="mb-1 flex items-center justify-between text-[11px] text-base-content/55">
+            <span>{{ item.user.full_name if item.user else "کاربر حذف‌شده" }}</span>
+            <span>{{ item.row.created_at | reltime }}</span>
+          </div>
+          <div class="whitespace-pre-wrap">{{ item.row.body }}</div>
+        </div>
+      {% endfor %}
+      <form method="post" action="/comments/add" class="space-y-2">
+        <input type="hidden" name="entity_type" value="{{ entity_type }}">
+        <input type="hidden" name="entity_id" value="{{ entity_id }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <textarea name="body" rows="2" class="textarea textarea-bordered w-full text-sm" placeholder="یادداشت خود را بنویسید…"></textarea>
+        <button class="btn btn-primary btn-xs">ثبت یادداشت</button>
+      </form>
+    </div>
+  </div>
+{%- endmacro %}
+
+{% macro files_block(files, owner_type, owner_id, next_url, can_delete=True) -%}
+  <div class="panel">
+    <div class="panel-head">
+      <h3 class="text-sm font-medium">فایل‌های پیوست ({{ files | length | fa }})</h3>
+    </div>
+    <div class="panel-body space-y-2">
+      {% for file in files %}
+        <div class="flex items-center justify-between gap-2 rounded-field bg-base-200/50 px-2 py-1.5">
+          <a class="flex items-center gap-2 text-sm text-primary hover:underline"
+             href="/files/{{ file.id }}/download">
+            <span>📎</span>
+            <span class="max-w-56 truncate">{{ file.filename }}</span>
+            <span class="text-[11px] text-base-content/50">{{ file.size | filesize }}</span>
+          </a>
+          {% if can_delete %}
+            <form method="post" action="/files/{{ file.id }}/delete" onsubmit="return confirm('این فایل حذف شود؟')">
+              <input type="hidden" name="next" value="{{ next_url }}">
+              <button class="btn btn-ghost btn-xs text-error">حذف</button>
+            </form>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="text-xs text-base-content/50">فایلی پیوست نشده است.</p>
+      {% endfor %}
+      <form method="post" action="/files/upload/{{ owner_type }}/{{ owner_id }}"
+            enctype="multipart/form-data" class="flex items-center gap-2 pt-2">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <input type="file" name="file" class="file-input file-input-sm file-input-bordered w-full" required>
+        <button class="btn btn-outline btn-sm whitespace-nowrap">بارگذاری</button>
+      </form>
+    </div>
+  </div>
+{%- endmacro %}
+
+{% macro timeline(events) -%}
+  <div class="tl">
+    {% for event in events %}
+      <div class="tl-item">
+        <div class="flex items-start gap-2">
+          <span>{{ event.icon }}</span>
+          <div class="min-w-0">
+            <div class="text-sm">
+              {% if event.url %}<a class="hover:underline" href="{{ event.url }}">{{ event.title }}</a>
+              {% else %}{{ event.title }}{% endif %}
+            </div>
+            <div class="text-[11px] text-base-content/50">
+              {{ event.at | jdt }} {% if event.subtitle %}· {{ event.subtitle }}{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-xs text-base-content/50">رویدادی ثبت نشده است.</p>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{% macro bar_chart(items, value_key="count", label_key="label") -%}
+  {% set peak = (items | map(attribute=value_key) | list | max) if items else 1 %}
+  <div class="space-y-2">
+    {% for item in items %}
+      <div>
+        <div class="mb-1 flex items-center justify-between text-[11px] text-base-content/60">
+          <span>{{ item[label_key] }}</span>
+          <span class="num">{{ item[value_key] | fa }}</span>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-base-200">
+          <div class="h-full rounded-full bg-primary"
+               style="width: {{ (item[value_key] * 100 / (peak or 1)) if peak else 0 }}%"></div>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-xs text-base-content/50">داده‌ای برای نمایش نیست.</p>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{% macro sparkline(points, caption=None) -%}
+  <svg viewBox="0 0 100 30" preserveAspectRatio="none" class="h-16 w-full text-primary">
+    <polyline points="{{ points }}" fill="none" stroke="currentColor" stroke-width="1.5"
+              vector-effect="non-scaling-stroke"></polyline>
+  </svg>
+  {% if caption %}<div class="text-[11px] text-base-content/50">{{ caption }}</div>{% endif %}
+{%- endmacro %}

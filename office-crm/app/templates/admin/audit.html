@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header, pagination with context %}
+
+{% block title %}گزارش رویدادها — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("گزارش رویدادها (Audit)", "هر تغییر در سامانه با کاربر، زمان و نشانی ثبت می‌شود", "🗒") %}
+  <a class="btn btn-ghost btn-sm" href="/admin/users">کاربران</a>
+  <a class="btn btn-ghost btn-sm" href="/admin/settings">تنظیمات</a>
+{% endcall %}
+
+<form method="get" action="/admin/audit" class="mb-3 flex flex-wrap items-center gap-2">
+  <input name="q" value="{{ params.get('q', '') }}" class="input input-sm input-bordered w-56" placeholder="جست‌وجو در شرح رویداد…">
+  <select name="user_id" class="select select-sm select-bordered">
+    <option value="">همه کاربران</option>
+    {% for user_id, name in users.items() %}
+      <option value="{{ user_id }}" {% if params.get('user_id') == user_id|string %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <select name="entity" class="select select-sm select-bordered">
+    <option value="">همه بخش‌ها</option>
+    {% for item in entities %}<option value="{{ item }}" {% if params.get('entity') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+  </select>
+  <select name="action" class="select select-sm select-bordered">
+    <option value="">همه عملیات</option>
+    {% for item in actions %}<option value="{{ item }}" {% if params.get('action') == item %}selected{% endif %}>{{ item }}</option>{% endfor %}
+  </select>
+  <input name="from" data-jdp class="input input-sm input-bordered w-28 jalali" placeholder="از" value="{{ params.get('from', '') }}">
+  <input name="to" data-jdp class="input input-sm input-bordered w-28 jalali" placeholder="تا" value="{{ params.get('to', '') }}">
+  <button class="btn btn-outline btn-sm">فیلتر</button>
+  {% if params %}<a class="btn btn-ghost btn-sm" href="/admin/audit">پاک کردن</a>{% endif %}
+</form>
+
+<div class="table-wrap">
+  <table class="tbl">
+    <thead>
+      <tr><th class="w-32">زمان</th><th class="w-32">کاربر</th><th class="w-20">عملیات</th>
+        <th class="w-24">بخش</th><th>شرح</th><th class="w-28">نشانی</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="hover">
+          <td class="num text-[11px]">{{ row.at | jdt }}</td>
+          <td class="text-xs">{{ row.username or users.get(row.user_id, "سیستم") }}</td>
+          <td>{{ badge(row.action, "badge-ghost") }}</td>
+          <td class="text-[11px]">{{ row.entity or "—" }}{% if row.entity_id %} <span class="num">#{{ row.entity_id | fa }}</span>{% endif %}</td>
+          <td class="text-xs">{{ row.summary or "—" }}</td>
+          <td class="num ltr text-[11px] text-base-content/60">{{ row.ip or "—" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">{{ empty("رویدادی با این فیلترها یافت نشد", None, "🗒") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{{ pagination({"page": page, "pages": (page + 1 if rows | length == size else page), "total": (page - 1) * size + (rows | length)}, "/admin/audit", params) }}
+{% endblock %}

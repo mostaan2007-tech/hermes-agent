@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header with context %}
+
+{% block title %}سند {{ quote.number }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header(("سند " ~ (quote.number or "پیش‌نویس")) | fa, dict(QUOTE_KINDS).get(quote.kind, quote.kind), "🧾") %}
+  <a class="btn btn-ghost btn-sm" href="/quotes">فهرست</a>
+  <a class="btn btn-outline btn-sm" href="/quotes/{{ quote.id }}/print" target="_blank">🖨 پیش‌نمایش چاپ</a>
+  {% if can_edit %}<a class="btn btn-outline btn-sm" href="/quotes/{{ quote.id }}/edit">✎ ویرایش</a>{% endif %}
+  {% if can_delete %}
+    <form method="post" action="/quotes/{{ quote.id }}/delete" onsubmit="return confirm('این سند حذف شود؟')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn btn-ghost btn-sm text-error">حذف</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+{% if quote.status == "paid" or quote.balance <= 0 %}
+  <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm font-medium text-success">
+    <span>✅ این سند پرداخت‌شده است.</span>
+    {% if quote.paid_at %}<span class="text-xs opacity-80">تاریخ تسویه: {{ quote.paid_at | jdate }}</span>{% endif %}
+  </div>
+{% endif %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">ردیف‌ها</h2>
+        <span>{{ badge(QUOTE_STATUS_LABELS.get(quote.status, quote.status), "badge-" ~ QUOTE_STATUS_BADGES.get(quote.status, "ghost")) }}</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th>#</th><th>شرح</th><th>تعداد</th><th>واحد</th><th>قیمت واحد</th><th>تخفیف</th><th>جمع</th></tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr>
+                <td class="num text-xs">{{ loop.index | fa }}</td>
+                <td class="text-sm">{{ item.description }}</td>
+                <td class="num text-xs">{{ item.quantity | fa }}</td>
+                <td class="text-xs">{{ item.unit or "—" }}</td>
+                <td class="num text-xs">{{ item.unit_price | money }}</td>
+                <td class="num text-xs">{{ item.discount | money }}</td>
+                <td class="num text-xs font-bold">{{ item.total | money }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="7" class="text-center text-xs text-base-content/50">ردیفی ثبت نشده است.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if quote.notes or quote.terms %}
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">توضیحات و شرایط</h2></div>
+        <div class="panel-body space-y-3 text-sm">
+          {% if quote.notes %}<div><div class="mb-1 text-xs text-base-content/50">توضیحات</div><p class="whitespace-pre-wrap">{{ quote.notes }}</p></div>{% endif %}
+          {% if quote.terms %}<div><div class="mb-1 text-xs text-base-content/50">شرایط و تعهدات</div><p class="whitespace-pre-wrap">{{ quote.terms }}</p></div>{% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">جمع‌بندی مالی</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("جمع ردیف‌ها", quote.subtotal | money) }}
+        {{ kv("تخفیف", quote.discount | money) }}
+        {{ kv("مالیات (٪" ~ (quote.tax_rate | fa) ~ ")", quote.tax_amount | money) }}
+        {{ kv("مبلغ قابل پرداخت", quote.total | money, "font-bold text-primary") }}
+        {{ kv("دریافت‌شده", quote.paid_amount | money, "text-success") }}
+        {{ kv("مانده", quote.balance | money, "text-warning") }}
+        {{ kv("به حروف", quote.total | words, "text-xs") }}
+      </div>
+      {% if can_edit and quote.balance > 0 %}
+        <div class="panel-body border-t border-base-200">
+          <form method="post" action="/quotes/{{ quote.id }}/pay" class="flex items-end gap-2">
+            <div class="field flex-1">
+              <label class="field-label" for="pay-amount">ثبت دریافت ({{ currency }})</label>
+              <input id="pay-amount" name="amount" class="input input-sm w-full num" value="{{ quote.balance | int }}">
+            </div>
+            <button class="btn btn-success btn-sm">ثبت</button>
+          </form>
+          <div class="mt-2 flex flex-wrap gap-1">
+            {% for value, label in [("sent", "ارسال به مشتری"), ("accepted", "پذیرش مشتری"), ("rejected", "رد مشتری"), ("paid", "تسویه کامل"), ("canceled", "لغو سند")] %}
+              {% if quote.status != value %}
+                <form method="post" action="/quotes/{{ quote.id }}/status">
+                  <input type="hidden" name="status" value="{{ value }}">
+                  <button class="btn btn-ghost btn-xs">{{ label }}</button>
+                </form>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">طرفین و مراجع</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("تاریخ صدور", quote.issue_date | jdate) }}
+        {{ kv("اعتبار تا", quote.valid_until | jdate if quote.valid_until else None) }}
+        {{ kv("مشتری", company.name if company else None) }}
+        {{ kv("مخاطب", contact.full_name if contact else None) }}
+        {% if deal %}{{ kv("فرصت فروش", deal.title) }}{% endif %}
+        {{ kv("آخرین تغییر", quote.updated_at | reltime) }}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

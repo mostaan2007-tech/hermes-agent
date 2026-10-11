@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header with context %}
+
+{% block title %}{{ "ویرایش سند مالی" if mode == "edit" else "سند مالی جدید" }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header(("ویرایش سند مالی " ~ (quote.number or "")) | fa if mode == "edit" else "سند مالی جدید",
+                    "پیش‌فاکتور، فاکتور یا قرارداد — با محاسبه خودکار مالیات و تخفیف", "🧾") %}
+  <a class="btn btn-ghost btn-sm" href="{{ ('/quotes/' ~ quote.id) if mode == 'edit' else '/quotes' }}">بازگشت</a>
+{% endcall %}
+
+{% set v = values or {} %}
+{% set vq = quote if (mode == "edit" and quote) else None %}
+{% set initial_items = [] %}
+{% if v.get('items_json') %}
+  {% for row in from_json(v['items_json'], []) %}
+    {% set _ = initial_items.append({"product_id": row.get("product_id", ""), "description": row.get("description", ""),
+                                      "quantity": row.get("quantity", 1), "unit": row.get("unit", ""),
+                                      "unit_price": row.get("unit_price", 0), "discount": row.get("discount", 0)}) %}
+  {% endfor %}
+{% else %}
+  {% for item in items %}
+    {% set _ = initial_items.append({"product_id": item.product_id or "", "description": item.description,
+                                      "quantity": item.quantity, "unit": item.unit or "",
+                                      "unit_price": item.unit_price, "discount": item.discount or 0}) %}
+  {% endfor %}
+{% endif %}
+{% set product_payload = [] %}
+{% for product in products %}
+  {% set _ = product_payload.append({"id": product.id, "name": product.name, "unit": product.unit or "", "price": product.price or 0, "code": product.code or ""}) %}
+{% endfor %}
+
+<form method="post" novalidate
+      action="{{ ('/quotes/' ~ quote.id ~ '/edit') if mode == 'edit' else '/quotes/new' }}"
+      x-data='quoteForm({items: {{ initial_items | tojson }}, products: {{ product_payload | tojson }}, currency: {{ currency | tojson }}, taxRate: {{ (values.get("tax_rate") if values else (quote.tax_rate if quote else tax_rate)) or tax_rate }}, discount: {{ (values.get("discount") if values else (quote.discount if quote else 0)) or 0 }})'
+      @submit="submit($event)">
+
+  <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+    <div class="xl:col-span-2 space-y-4">
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">اطلاعات سند</h2></div>
+        <div class="panel-body form-grid">
+          <div class="field">
+            <label class="field-label" for="q-kind">نوع سند <span class="text-error">*</span></label>
+            <select id="q-kind" name="kind" class="select select-sm w-full">
+              {% set current_kind = v.get("kind") or (vq.kind if vq else "quote") %}
+              {% for value, label in kinds %}
+                <option value="{{ value }}" {% if current_kind == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-company">مشتری / شرکت <span class="text-error">*</span></label>
+            <select id="q-company" name="company_id" class="select select-sm w-full {{ 'select-error' if errors.get('company_id') }}">
+              <option value="">— انتخاب کنید —</option>
+              {% set current_company = (v.get("company_id") or (vq.company_id if vq else "")) | string %}
+              {% for company in companies %}
+                <option value="{{ company.id }}" {% if current_company == company.id|string %}selected{% endif %}>{{ company.name }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.get('company_id') %}<span class="field-error">{{ errors['company_id'] }}</span>{% endif %}
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-contact">مخاطب</label>
+            <select id="q-contact" name="contact_id" class="select select-sm w-full">
+              <option value="">—</option>
+              {% set current_contact = (v.get("contact_id") or (vq.contact_id if vq else "")) | string %}
+              {% for contact in contacts %}
+                <option value="{{ contact.id }}" {% if current_contact == contact.id|string %}selected{% endif %}>{{ contact.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-deal">فرصت فروش مرتبط</label>
+            <select id="q-deal" name="deal_id" class="select select-sm w-full">
+              <option value="">—</option>
+              {% set current_deal = (v.get("deal_id") or (vq.deal_id if vq else "")) | string %}
+              {% for deal in deals %}
+                <option value="{{ deal.id }}" {% if current_deal == deal.id|string %}selected{% endif %}>{{ deal.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-issue">تاریخ صدور <span class="text-error">*</span></label>
+            <input id="q-issue" name="issue_date" data-jdp required class="input input-sm w-full jalali"
+                   value="{{ v.get('issue_date') or (vq.issue_date | jdate if vq else today | jdate) }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-valid">اعتبار تا تاریخ</label>
+            <input id="q-valid" name="valid_until" data-jdp class="input input-sm w-full jalali"
+                   value="{{ v.get('valid_until') or (vq.valid_until | jdate if vq and vq.valid_until else '') }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="text-sm font-medium">ردیف‌های کالا و خدمات</h2>
+          <button type="button" class="btn btn-outline btn-xs" @click="addRow()">+ افزودن ردیف</button>
+        </div>
+        <div class="panel-body">
+          {% if errors.get('items') %}<div class="alert alert-error mb-3 text-xs">{{ errors['items'] }}</div>{% endif %}
+          <div class="table-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th class="w-8">#</th><th>کالا/خدمت</th><th class="w-64">شرح</th>
+                  <th class="w-20">تعداد</th><th class="w-16">واحد</th>
+                  <th class="w-28">قیمت واحد</th><th class="w-24">تخفیف</th>
+                  <th class="w-28">جمع</th><th class="w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(row, index) in items" :key="index">
+                  <tr>
+                    <td><span class="num text-xs" x-text="fa(index + 1)"></span></td>
+                    <td>
+                      <select class="select select-xs w-full" x-model="row.product_id" @change="fill(index)">
+                        <option value="">— متن آزاد —</option>
+                        <template x-for="product in products" :key="product.id">
+                          <option :value="product.id" x-text="product.name"></option>
+                        </template>
+                      </select>
+                    </td>
+                    <td><input class="input input-xs w-full" x-model="row.description" :name="'item_description'" placeholder="شرح ردیف"></td>
+                    <td><input type="number" step="0.01" min="0" class="input input-xs w-full num" x-model="row.quantity"></td>
+                    <td><input class="input input-xs w-full" x-model="row.unit"></td>
+                    <td><input type="number" step="any" min="0" class="input input-xs w-full num" x-model="row.unit_price"></td>
+                    <td><input type="number" step="any" min="0" class="input input-xs w-full num" x-model="row.discount"></td>
+                    <td class="num text-xs font-bold" x-text="fa(rowTotal(row))"></td>
+                    <td><button type="button" class="btn btn-ghost btn-xs text-error" @click="removeRow(index)">✕</button></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <input type="hidden" id="items-json" name="items_json">
+          <p class="mt-2 text-[11px] text-base-content/50">در صورت غیرفعال بودن جاوااسکریپت، ردیف‌ها به‌صورت متنی ارسال می‌شوند.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">توضیحات و شرایط</h2></div>
+        <div class="panel-body form-grid">
+          <div class="field md:col-span-3">
+            <label class="field-label" for="q-notes">توضیحات</label>
+            <textarea id="q-notes" name="notes" rows="3" class="textarea textarea-bordered w-full text-sm">{{ v.get('notes') or (vq.notes if vq else '') or '' }}</textarea>
+          </div>
+          <div class="field md:col-span-3">
+            <label class="field-label" for="q-terms">شرایط و تعهدات</label>
+            <textarea id="q-terms" name="terms" rows="3" class="textarea textarea-bordered w-full text-sm">{{ v.get('terms') or (vq.terms if vq else '') or '' }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="panel sticky top-16">
+        <div class="panel-head"><h2 class="text-sm font-medium">جمع‌بندی</h2></div>
+        <div class="panel-body space-y-3 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/60">جمع ردیف‌ها</span>
+            <span class="num font-bold" x-text="fa(subtotal) + ' {{ currency }}'"></span>
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-discount">تخفیف کل ({{ currency }})</label>
+            <input id="q-discount" name="discount" type="number" step="any" min="0" class="input input-sm w-full num" x-model.number="discount">
+          </div>
+          <div class="field">
+            <label class="field-label" for="q-tax">مالیات بر ارزش افزوده (٪)</label>
+            <input id="q-tax" name="tax_rate" type="number" step="0.1" min="0" max="100" class="input input-sm w-full num" x-model.number="taxRate">
+          </div>
+          <div class="flex items-center justify-between border-t border-base-200 pt-2">
+            <span class="text-base-content/60">مالیات</span>
+            <span class="num" x-text="fa(taxAmount) + ' {{ currency }}'"></span>
+          </div>
+          <div class="flex items-center justify-between text-base">
+            <span class="font-medium">مبلغ قابل پرداخت</span>
+            <span class="num text-lg font-bold text-primary" x-text="fa(total) + ' {{ currency }}'"></span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="q-status">وضعیت سند</label>
+            <select id="q-status" name="status" class="select select-sm w-full">
+              {% set current_status = v.get("status") or (vq.status if vq else "draft") %}
+              {% for value, label in statuses %}
+                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button class="btn btn-primary btn-sm w-full">{{ "ذخیره تغییرات" if mode == "edit" else "ثبت سند مالی" }}</button>
+          {% if mode == "edit" %}
+            <a class="btn btn-outline btn-sm w-full" href="/quotes/{{ quote.id }}/print">پیش‌نمایش چاپ</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

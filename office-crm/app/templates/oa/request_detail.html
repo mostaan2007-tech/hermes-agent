@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, files_block, comments_block with context %}
+
+{% block title %}{{ row.subject }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header(row.subject, (type_.name if type_ else "درخواست") ~ " · شماره " ~ ((row.number or "—") | fa), type_.icon if type_ else "📄") %}
+  <a class="btn btn-ghost btn-sm" href="/requests">فهرست</a>
+  <a class="btn btn-outline btn-sm" href="/requests/{{ row.id }}/print" target="_blank">🖨 چاپ</a>
+  {% if can_edit %}
+    <a class="btn btn-outline btn-sm" href="/requests/{{ row.id }}/edit">✎ ویرایش</a>
+  {% endif %}
+  {% if row.status in ("draft", "returned") %}
+    <form method="post" action="/requests/{{ row.id }}/submit">
+      <button class="btn btn-primary btn-sm">🚀 ارسال برای تأیید</button>
+    </form>
+  {% endif %}
+  {% if can_act %}
+    <form method="post" action="/requests/{{ row.id }}/approve" class="flex items-center gap-1">
+      <input name="comment" class="input input-xs w-40" placeholder="یادداشت تأیید…">
+      <button class="btn btn-success btn-sm">✔ تأیید</button>
+    </form>
+    <form method="post" action="/requests/{{ row.id }}/reject" class="flex items-center gap-1">
+      <input name="comment" class="input input-xs w-40" placeholder="دلیل رد…">
+      <button class="btn btn-ghost btn-sm text-error">✕ رد</button>
+    </form>
+    <form method="post" action="/requests/{{ row.id }}/return" class="flex items-center gap-1">
+      <input name="comment" class="input input-xs w-40" placeholder="اصلاح…">
+      <button class="btn btn-ghost btn-sm">↩ برگشت</button>
+    </form>
+  {% endif %}
+  {% if row.status in ("draft", "pending") and row.requester_id == user.id %}
+    <form method="post" action="/requests/{{ row.id }}/cancel">
+      <button class="btn btn-ghost btn-sm">لغو درخواست</button>
+    </form>
+  {% endif %}
+  {% if can("requests.delete") and row.status in ("draft", "canceled") %}
+    <form method="post" action="/requests/{{ row.id }}/delete" onsubmit="return confirm('این درخواست حذف شود؟')">
+      <button class="btn btn-ghost btn-sm text-error">حذف</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">جزئیات درخواست</h2>
+        <span>{{ badge(REQUEST_STATUS_LABELS.get(row.status, row.status), "badge-" ~ REQUEST_STATUS_BADGES.get(row.status, "ghost")) }}</span>
+      </div>
+      <div class="panel-body text-sm">
+        {{ kv("متقاضی", requester.full_name if requester else None) }}
+        {{ kv("نوع درخواست", type_.name if type_ else None) }}
+        {{ kv("تاریخ ثبت", row.created_at | jdt) }}
+        {% if row.submitted_at %}{{ kv("زمان ارسال", row.submitted_at | jdt) }}{% endif %}
+        {% if row.start_date %}
+          {{ kv("بازه", (row.start_date | jdate) ~ (" تا " ~ (row.end_date | jdate) if row.end_date and row.end_date != row.start_date else "")) }}
+        {% endif %}
+        {% if row.duration_days %}{{ kv("مدت", (row.duration_days | fa) ~ " روز") }}{% endif %}
+        {% if row.amount %}{{ kv("مبلغ", row.amount | money) }}{% endif %}
+        {% for field in payload_fields %}
+          {% set value = (row.payload or {}).get(field.name) %}
+          {{ kv(field.label, value) }}
+        {% endfor %}
+        {% if row.decision_note %}{{ kv("یادداشت تصمیم", row.decision_note) }}{% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">گردش تأیید</h2><span class="text-[11px] text-base-content/50">{{ steps | length | fa }} مرحله</span></div>
+      <div class="panel-body">
+        <div class="tl">
+          {% for item in steps %}
+            {% set step = item.step %}
+            <div class="tl-item">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="text-sm font-medium">
+                    {{ item.step.order_index | fa }}. {{ item.title or (item.approver.full_name if item.approver else "تأییدکننده") }}
+                  </div>
+                  <div class="text-[11px] text-base-content/55">
+                    {{ item.approver.full_name if item.approver else "بدون تأییدکننده مشخص" }}
+                    {% if step.decided_at %} · {{ step.decided_at | jdt }}{% endif %}
+                  </div>
+                </div>
+                <div>
+                  {% if step.decision == "approved" %}{{ badge("تأیید شد", "badge-success") }}
+                  {% elif step.decision == "rejected" %}{{ badge("رد شد", "badge-error") }}
+                  {% elif step.decision == "returned" %}{{ badge("برگشت برای اصلاح", "badge-warning") }}
+                  {% elif step.decision == "skipped" %}{{ badge("رد شد (بدون تأییدکننده)", "badge-ghost") }}
+                  {% elif current and current.id == step.id %}{{ badge("در نوبت تصمیم", "badge-primary") }}
+                  {% else %}{{ badge("در انتظار", "badge-ghost") }}{% endif %}
+                </div>
+              </div>
+              {% if step.comment %}<p class="mt-1 text-xs text-base-content/70">«{{ step.comment }}»</p>{% endif %}
+            </div>
+          {% else %}
+            <p class="text-xs text-base-content/50">مسیر تأییدی ثبت نشده است.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مراجع مرتبط</h2></div>
+      <div class="panel-body text-sm">
+        {% if company %}<a class="block hover:underline" href="/companies/{{ company.id }}">🏢 {{ company.name }}</a>{% endif %}
+        {% if deal %}<a class="block hover:underline" href="/deals/{{ deal.id }}">📊 {{ deal.title }}</a>{% endif %}
+        {% if not (company or deal) %}<p class="text-xs text-base-content/50">به پرونده‌ای متصل نیست.</p>{% endif %}
+      </div>
+    </div>
+    {{ files_block(files, "request", row.id, "/requests/" ~ row.id) }}
+    {{ comments_block("request", row.id, comments, "/requests/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

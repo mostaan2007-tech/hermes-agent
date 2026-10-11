@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header with context %}
+
+{% block title %}{{ "ویرایش کاربر" if user_row else "کاربر جدید" }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% set v = values or {} %}
+{% call page_header(("ویرایش کاربر " ~ user_row.full_name) if user_row else "کاربر جدید",
+                    "ایجاد حساب با رمز عبور امن؛ الزام تغییر رمز در اولین ورود قابل تنظیم است", "👤") %}
+  <a class="btn btn-ghost btn-sm" href="{{ ('/admin/users/' ~ user_row.id) if user_row else '/admin/users' }}">بازگشت</a>
+{% endcall %}
+
+<form method="post" novalidate action="{{ ('/admin/users/' ~ user_row.id ~ '/edit') if user_row else '/admin/users/new' }}"
+      class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="panel lg:col-span-2">
+    <div class="panel-head"><h2 class="text-sm font-medium">اطلاعات حساب</h2></div>
+    <div class="panel-body form-grid">
+      <div class="field">
+        <label class="field-label" for="u-full">نام و نام خانوادگی <span class="text-error">*</span></label>
+        <input id="u-full" name="full_name" required class="input input-sm w-full {{ 'input-error' if errors.get('full_name') }}"
+               value="{{ v.get('full_name') or (user_row.full_name if user_row else '') }}">
+        {% if errors.get('full_name') %}<span class="field-error">{{ errors['full_name'] }}</span>{% endif %}
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-username">نام کاربری <span class="text-error">*</span></label>
+        <input id="u-username" name="username" required class="input input-sm w-full num ltr {{ 'input-error' if errors.get('username') }}"
+               value="{{ v.get('username') or (user_row.username if user_row else '') }}"
+               {% if user_row %}readonly{% endif %}>
+        {% if errors.get('username') %}<span class="field-error">{{ errors['username'] }}</span>
+        {% else %}<span class="field-hint">با حروف کوچک لاتین؛ در ورود به سامانه استفاده می‌شود.</span>{% endif %}
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-role">نقش <span class="text-error">*</span></label>
+        <select id="u-role" name="role" class="select select-sm w-full">
+          {% for value, label in roles %}
+            <option value="{{ value }}" {% if (v.get('role') or (user_row.role if user_row else 'staff')) == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.get('role') %}<span class="field-error">{{ errors['role'] }}</span>{% endif %}
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-position">سمت سازمانی</label>
+        <input id="u-position" name="position" class="input input-sm w-full" value="{{ v.get('position') or (user_row.position if user_row else '') }}">
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-department">واحد سازمانی</label>
+        <select id="u-department" name="department_id" class="select select-sm w-full">
+          <option value="">—</option>
+          {% set current_dep = (v.get('department_id') or (user_row.department_id if user_row else '')) | string %}
+          {% for dep in departments %}
+            <option value="{{ dep.id }}" {% if current_dep == dep.id | string %}selected{% endif %}>{{ dep.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-email">ایمیل</label>
+        <input id="u-email" name="email" class="ltr input input-sm w-full" value="{{ v.get('email') or (user_row.email if user_row else '') }}">
+      </div>
+      <div class="field">
+        <label class="field-label" for="u-phone">تلفن همراه</label>
+        <input id="u-phone" name="phone" class="input input-sm w-full num" value="{{ v.get('phone') or (user_row.phone if user_row else '') }}">
+      </div>
+      {% if not user_row %}
+        <div class="field">
+          <label class="field-label" for="u-password">رمز عبور <span class="text-error">*</span></label>
+          <input id="u-password" name="password" type="password" class="ltr input input-sm w-full {{ 'input-error' if errors.get('password') }}" autocomplete="new-password">
+          {% if errors.get('password') %}<span class="field-error">{{ errors['password'] }}</span>
+          {% else %}<span class="field-hint">حداقل ۸ نویسه، ترکیبی از حرف و رقم.</span>{% endif %}
+        </div>
+        <div class="field">
+          <label class="flex items-center gap-2 pt-5 text-sm">
+            <input type="checkbox" name="must_change_password" value="1" checked class="toggle toggle-sm toggle-primary">
+            <span>تغییر رمز در اولین ورود الزامی باشد</span>
+          </label>
+        </div>
+      {% endif %}
+      {% for key, message in errors.items() %}
+        {% if key not in ("full_name", "username", "role", "password") %}
+          <div class="field md:col-span-3"><span class="field-error">{{ key }}: {{ message }}</span></div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">راهنما</h2></div>
+      <div class="panel-body text-xs text-base-content/70">
+        <p>دسترسی‌ها بر اساس نقش تعیین می‌شود؛ برای دیدن ماتریس دسترسی‌ها به فایل مستندات سامانه مراجعه کنید.</p>
+        <p class="mt-2">هر کاربر می‌تواند وظایف، درخواست‌ها و پیگیری‌های خود را در «کارتابل من» ببیند.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-body space-y-2">
+        <button class="btn btn-primary btn-sm w-full">{{ "ذخیره تغییرات" if user_row else "ایجاد کاربر" }}</button>
+        <a class="btn btn-ghost btn-sm w-full" href="/admin/users">انصراف</a>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

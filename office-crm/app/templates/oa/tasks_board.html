@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}تخته وظایف — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("تخته وظایف", "کارت‌ها را بکشید و در ستون وضعیت جدید رها کنید", "🗂") %}
+  <a class="btn btn-outline btn-sm" href="/tasks/mine">وظایف من</a>
+  {% if can("tasks.create") %}<a class="btn btn-primary btn-sm" href="/tasks/new">+ وظیفه جدید</a>{% endif %}
+{% endcall %}
+
+<form method="get" action="/tasks/board" class="mb-3 flex flex-wrap items-center gap-2">
+  {% if can("tasks.view_all") %}
+    <select name="scope" class="select select-sm select-bordered" onchange="this.form.requestSubmit()">
+      <option value="mine" {% if scope == "mine" %}selected{% endif %}>وظایف من</option>
+      <option value="all" {% if scope == "all" %}selected{% endif %}>همه وظایف</option>
+    </select>
+    <select name="assignee_id" class="select select-sm select-bordered">
+      <option value="">همه همکاران</option>
+      {% for person in user_list %}
+        <option value="{{ person.id }}" {% if assignee == person.id %}selected{% endif %}>{{ person.full_name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-outline btn-sm">اعمال</button>
+  {% endif %}
+  <span class="text-[11px] text-base-content/50">وظایف را می‌توانید با کشیدن و رها کردن جابه‌جا کنید.</span>
+</form>
+
+<div class="flex gap-3 overflow-x-auto pb-4" data-task-board>
+  {% for column in columns %}
+    <div class="kanban-col" data-task-status="{{ column.status }}">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-sm font-medium">{{ column.label }}</span>
+        <span class="badge badge-ghost badge-xs">{{ column.tasks | length | fa }}</span>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        {% for task in column.tasks %}
+          {% set label, tone = due(task.due_date) %}
+          <div class="kanban-card" data-task-id="{{ task.id }}">
+            <div class="flex items-start justify-between gap-2">
+              <a class="text-sm font-medium hover:text-primary hover:underline" href="/tasks/{{ task.id }}">{{ task.title }}</a>
+              {% if task.priority in ("high", "urgent") %}⚡{% endif %}
+            </div>
+            <div class="mt-1 flex items-center justify-between text-[11px]">
+              <span>{{ users.get(task.assignee_id, "بدون مسئول") }}</span>
+              <span class="{{ {'late': 'text-error', 'soon': 'text-warning'}.get(tone, 'text-base-content/50') }}">{{ label }}</span>
+            </div>
+            {% if task.company_id %}
+              <div class="mt-1 text-[10px] text-base-content/50">{{ companies.get(task.company_id, "") }}</div>
+            {% endif %}
+            {% if can_edit %}
+              <form method="post" action="/tasks/{{ task.id }}/status" class="mt-2 flex items-center gap-1">
+                <input type="hidden" name="next" value="/tasks/board">
+                <select name="status" class="select select-xs w-full" onchange="this.form.requestSubmit()">
+                  {% for value, label in TASK_STATUSES %}
+                    <option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="rounded-field border border-dashed border-base-300 p-3 text-center text-[11px] text-base-content/40">خالی</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

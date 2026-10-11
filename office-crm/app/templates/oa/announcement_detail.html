@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header with context %}
+
+{% block title %}{{ row.title }} — اطلاعیه{% endblock %}
+
+{% block content %}
+{% call page_header(row.title, "اطلاعیه سازمانی" ~ (" · سنجاق‌شده" if row.is_pinned else ""), "📢") %}
+  <a class="btn btn-ghost btn-sm" href="/announcements">فهرست اطلاعیه‌ها</a>
+  {% if can_edit %}<a class="btn btn-outline btn-sm" href="/announcements/{{ row.id }}/edit">✎ ویرایش</a>{% endif %}
+  {% if can_delete %}
+    <form method="post" action="/announcements/{{ row.id }}/delete" onsubmit="return confirm('این اطلاعیه حذف شود؟')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn btn-ghost btn-sm text-error">حذف</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="panel lg:col-span-2">
+    <div class="panel-head">
+      <div class="flex items-center gap-2">
+        {% if row.is_pinned %}<span title="سنجاق‌شده">📌</span>{% endif %}
+        <span class="text-sm font-medium">{{ audience_label }}</span>
+      </div>
+      <span class="text-[11px] text-base-content/50">{{ row.publish_at | jdt }}</span>
+    </div>
+    <div class="panel-body whitespace-pre-wrap text-sm leading-8">{{ row.body }}</div>
+    {% if row.expire_at %}
+      <div class="panel-body border-t border-base-200 text-[11px] text-base-content/55">
+        اعتبار تا {{ row.expire_at | jdate }}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">انتشار</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("نویسنده", author.full_name if author else None) }}
+        {{ kv("مخاطبان", audience_label) }}
+        {{ kv("زمان انتشار", row.publish_at | jdt) }}
+        {{ kv("خوانده‌شده توسط", (readers | length | fa) ~ " نفر") }}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">چه کسانی خوانده‌اند</h2></div>
+      <div class="panel-body flex flex-wrap gap-1">
+        {% for person in readers %}
+          <span class="badge badge-ghost badge-sm">{{ person.full_name }}</span>
+        {% else %}
+          <p class="text-xs text-base-content/50">هنوز کسی این اطلاعیه را باز نکرده است.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "macros.html" import field as render_field with context %}
+
+{% block title %}{{ ("ویرایش " if mode == "edit" else "ثبت ") + entity.title_one }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <div class="mb-4 flex items-center justify-between gap-3">
+    <h1 class="flex items-center gap-2 text-xl font-bold">
+      <span>{{ entity.icon }}</span>
+      {{ "ویرایش" if mode == "edit" else "ثبت" }} {{ entity.title_one }}
+    </h1>
+    <a class="btn btn-ghost btn-sm" href="{{ items_url }}{{ '/' ~ row.id if row else '' }}">بازگشت</a>
+  </div>
+
+  {% if errors %}
+    <div class="alert alert-error mb-4 py-2 text-sm">
+      لطفاً خطاهای مشخص‌شده را اصلاح کنید ({{ errors | length | fa }} مورد).
+    </div>
+  {% endif %}
+
+  <form method="post" class="panel"
+        action="{{ items_url ~ ('/' ~ row.id ~ '/edit' if mode == 'edit' else '/new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="panel-body">
+      <div class="form-grid">
+        {% for f in form_fields %}
+          {{ render_field(f, values.get(f.name), errors.get(f.name), ref_options.get(f.ref or '')) }}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="flex items-center justify-between gap-2 border-t border-base-300 px-4 py-3">
+      <span class="text-[11px] text-base-content/50">فیلدهای ستاره‌دار الزامی هستند.</span>
+      <div class="flex gap-2">
+        <a class="btn btn-ghost btn-sm" href="{{ items_url }}">انصراف</a>
+        <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

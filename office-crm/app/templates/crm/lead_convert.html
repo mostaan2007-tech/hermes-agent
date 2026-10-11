@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header, kv with context %}
+
+{% block title %}تبدیل سرنخ — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("تبدیل سرنخ به مشتری", "از این سرنخ یک پرونده شرکت و فرصت فروش ساخته می‌شود", "🎯") %}
+  <a class="btn btn-ghost btn-sm" href="/leads/{{ lead.id }}">بازگشت</a>
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="panel lg:col-span-2">
+    <div class="panel-head"><h2 class="text-sm font-medium">اطلاعات پرونده جدید</h2></div>
+    <form method="post" action="/leads/{{ lead.id }}/convert" class="panel-body space-y-4">
+      <div class="form-grid">
+        <div class="field md:col-span-3">
+          <label class="field-label" for="c-name">نام شرکت <span class="text-error">*</span></label>
+          <input id="c-name" name="company_name" required class="input input-sm w-full"
+                 value="{{ lead.company_name or lead.title }}">
+          <span class="field-hint">اگر پرونده شرکتی با این نام وجود داشته باشد، فرصت به همان پرونده متصل می‌شود.</span>
+        </div>
+        <div class="field">
+          <label class="field-label" for="c-owner">کارشناس فروش</label>
+          <select id="c-owner" name="owner_id" class="select select-sm w-full">
+            {% for person in users %}
+              <option value="{{ person.id }}" {% if person.id == lead.owner_id %}selected{% endif %}>{{ person.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="c-stage">مرحله اولیه قیف</label>
+          <select id="c-stage" name="stage_id" class="select select-sm w-full">
+            {% for stage in stages %}<option value="{{ stage.id }}">{{ stage.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="c-amount">مبلغ تخمینی</label>
+          <input id="c-amount" name="amount" class="input input-sm w-full num" value="{{ lead.estimated_value or '' }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="c-close">تاریخ پیش‌بینی بستن</label>
+          <input id="c-close" name="expected_close_date" data-jdp class="input input-sm w-full jalali" placeholder="۱۴۰۵/۰۷/۱۹">
+        </div>
+        <div class="field">
+          <label class="field-label" for="c-deal">عنوان فرصت فروش <span class="text-error">*</span></label>
+          <input id="c-deal" name="deal_title" required class="input input-sm w-full" value="{{ lead.title }}">
+        </div>
+        <div class="field md:col-span-3">
+          <label class="field-label" for="c-contact">ساخت مخاطب</label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="create_contact" value="1" checked class="checkbox checkbox-sm checkbox-primary">
+            <span>برای «{{ lead.contact_name or "—" }}» یک مخاطب در پرونده شرکت ساخته شود.</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-primary btn-sm">تبدیل سرنخ</button>
+        <a class="btn btn-ghost btn-sm" href="/leads">انصراف</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">سرنخ فعلی</h2></div>
+    <div class="panel-body">
+      {{ kv("عنوان", lead.title) }}
+      {{ kv("نام شرکت", lead.company_name) }}
+      {{ kv("شخص رابط", lead.contact_name) }}
+      {{ kv("تلفن", lead.phone | fa) }}
+      {{ kv("ایمیل", lead.email) }}
+      {{ kv("منبع", lead.source) }}
+      {{ kv("ارزش تخمینی", lead.estimated_value | money) }}
+    </div>
+  </div>
+</div>
+{% endblock %}

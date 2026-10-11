@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, comments_block, files_block with context %}
+
+{% block title %}{{ row.title }} — سند بایگانی{% endblock %}
+
+{% block content %}
+{% call page_header(row.title, "سند بایگانی" ~ ((" · شماره " ~ row.doc_number|fa) if row.doc_number else ""), "🗄") %}
+  <a class="btn btn-ghost btn-sm" href="/documents">فهرست اسناد</a>
+  <a class="btn btn-outline btn-sm" href="/documents/{{ row.id }}/edit">✎ ویرایش</a>
+  {% if company %}<a class="btn btn-ghost btn-sm" href="/companies/{{ company.id }}">🏢 پرونده شرکت</a>{% endif %}
+  {% if letter %}<a class="btn btn-ghost btn-sm" href="/letters/{{ letter.id }}">✉ نامه مرتبط</a>{% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-4 lg:col-span-2">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">شرح سند</h2>
+        {{ badge(CONFIDENTIALITY_LABELS.get(row.confidentiality, row.confidentiality),
+                 "badge-error" if row.confidentiality != "normal" else "badge-ghost") }}
+      </div>
+      <div class="panel-body whitespace-pre-wrap text-sm">{{ row.description or "شرحی ثبت نشده است." }}</div>
+    </div>
+    {{ files_block(files, "document", row.id, "/documents/" ~ row.id) }}
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات</h2></div>
+      <div class="panel-body">
+        {% for field in fields %}{{ kv(field.label_text, cell(field, row, refs).text) }}{% endfor %}
+        {{ kv("مسئول سند", owner.full_name if owner else None) }}
+        {{ kv("شرکت مرتبط", company.name if company else None) }}
+        {{ kv("تاریخ ثبت", row.created_at | jdt) }}
+      </div>
+    </div>
+    {{ comments_block("document", row.id, comments, "/documents/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

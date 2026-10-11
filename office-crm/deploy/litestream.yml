@@ -1,0 +1,30 @@
+# Continuous replication of the SQLite database.
+# Docs: https://litestream.io/reference/config/
+#
+# Default: a copy on a second disk / network share (the ./backups folder next to
+# this file).  For off-site, replace the `file` replica with one of the blocks
+# below — litestream recreates the database from it in seconds after a crash.
+dbs:
+  - path: /data/office.db
+    replicas:
+      - type: file
+        path: /backup/litestream
+
+      # --- Backblaze B2 ----------------------------------------------------
+      # - type: s3
+      #   bucket: office-crm-backups
+      #   path: office.db
+      #   endpoint: s3.eu-central-003.backblazeb2.com
+      #   region: eu-central-003
+      #   access-key-id: ${B2_KEY_ID}
+      #   secret-access-key: ${B2_APP_KEY}
+
+      # --- MinIO / any S3-compatible server on the LAN ---------------------
+      # - type: s3
+      #   bucket: office-crm
+      #   path: office.db
+      #   endpoint: http://192.168.1.20:9000
+      #   force-path-style: true
+      #   region: us-east-1
+      #   access-key-id: ${MINIO_KEY}
+      #   secret-access-key: ${MINIO_SECRET}

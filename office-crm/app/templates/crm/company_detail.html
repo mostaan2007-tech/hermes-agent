@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, timeline as timeline_macro, comments_block, files_block, empty with context %}
+
+{% block title %}{{ row.name }} — پرونده ۳۶۰ درجه{% endblock %}
+
+{% block content %}
+{% call page_header(row.name, (row.industry or "صنعت ثبت نشده") ~ " · " ~ (row.city or "شهر ثبت نشده"), "🏢") %}
+  <a class="btn btn-ghost btn-sm" href="/companies">فهرست شرکت‌ها</a>
+  <a class="btn btn-outline btn-sm" href="/companies/{{ row.id }}/edit">✎ ویرایش پرونده</a>
+  {% if can("deals.create") %}<a class="btn btn-outline btn-sm" href="/deals/new?company_id={{ row.id }}">+ فرصت فروش</a>{% endif %}
+  {% if can("crm.create") %}<a class="btn btn-outline btn-sm" href="/activities/new?company_id={{ row.id }}">+ پیگیری</a>{% endif %}
+  {% if can("letters.create") %}<a class="btn btn-outline btn-sm" href="/letters/new?company_id={{ row.id }}">+ نامه</a>{% endif %}
+  {% if can("tasks.create") %}<a class="btn btn-outline btn-sm" href="/tasks/new?company_id={{ row.id }}">+ وظیفه</a>{% endif %}
+  {% if can("requests.create") %}<a class="btn btn-outline btn-sm" href="/requests/new">+ درخواست</a>{% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+  <div class="stat-card"><div class="text-xs text-base-content/60">ارزش فرصت‌های باز</div><div class="num mt-1 text-lg font-bold">{{ totals.deal_value | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">فروش قطعی</div><div class="num mt-1 text-lg font-bold text-success">{{ totals.won_value | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">فرصت‌های باز</div><div class="num mt-1 text-lg font-bold">{{ totals.open_deals | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">مخاطبین</div><div class="num mt-1 text-lg font-bold">{{ totals.contacts | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">وظایف باز</div><div class="num mt-1 text-lg font-bold">{{ totals.open_tasks | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">نامه‌ها</div><div class="num mt-1 text-lg font-bold">{{ totals.letters | fa }}</div></div>
+</div>
+
+<div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3" x-data="{ tab: 'deals' }">
+  <div class="space-y-4 xl:col-span-2">
+    <div class="panel">
+      <div class="panel-head flex-wrap gap-2">
+        <div class="join flex-wrap">
+          {% for key, label, count in [("deals", "فرصت‌ها", deals | length), ("activities", "پیگیری‌ها", activities | length),
+                                        ("quotes", "اسناد مالی", quotes | length), ("letters", "نامه‌ها", letters | length),
+                                        ("tasks", "وظایف", tasks | length), ("requests", "درخواست‌ها", requests | length),
+                                        ("contacts", "مخاطبین", contacts | length), ("documents", "اسناد", documents | length),
+                                        ("meetings", "جلسات", meetings | length)] %}
+            <button class="join-item btn btn-xs {{ 'btn-primary' if key == 'deals' else 'btn-ghost' }}"
+                    :class="tab === '{{ key }}' ? 'btn-primary' : 'btn-ghost'" @click="tab = '{{ key }}'">
+              {{ label }} <span class="num badge badge-ghost badge-xs">{{ count | fa }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'deals'">
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>عنوان</th><th class="w-28">مبلغ</th><th class="w-24">احتمال</th><th class="w-24">وضعیت</th><th class="w-28">بستن</th></tr></thead>
+            <tbody>
+              {% for deal in deals %}
+                <tr class="hover">
+                  <td><a class="text-sm hover:underline" href="/deals/{{ deal.id }}">{{ deal.title }}</a></td>
+                  <td class="num text-xs">{{ deal.amount | money }}</td>
+                  <td class="num text-xs">{{ deal.probability | fa }}٪</td>
+                  <td>{{ badge(DEAL_STATUS_LABELS.get(deal.status, deal.status), "badge-" ~ DEAL_STATUS_BADGES.get(deal.status, "ghost")) }}</td>
+                  <td class="num text-xs">{{ deal.expected_close_date | jdate }}</td>
+                </tr>
+              {% else %}<tr><td colspan="5" class="text-center text-xs text-base-content/50">فرصتی ثبت نشده است.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'activities'" x-cloak>
+        <div class="space-y-2">
+          {% for item in activities %}
+            <div class="flex items-center justify-between gap-2 rounded-field border border-base-200 px-3 py-2">
+              <div class="min-w-0">
+                <a class="text-sm hover:underline" href="/activities/{{ item.id }}">{{ ACTIVITY_KIND_ICONS.get(item.kind, "•") }} {{ item.subject }}</a>
+                <div class="text-[11px] text-base-content/55">{{ item.due_at | jdt }} · {{ users.get(item.owner_id, "—") }}</div>
+              </div>
+              {{ badge(ACTIVITY_STATUS_LABELS.get(item.status, item.status), "badge-" ~ ACTIVITY_STATUS_BADGES.get(item.status, "ghost")) }}
+            </div>
+          {% else %}<p class="text-xs text-base-content/50">پیگیری‌ای ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'quotes'" x-cloak>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>شماره</th><th class="w-28">مبلغ</th><th class="w-24">وضعیت</th><th class="w-28">تاریخ</th></tr></thead>
+            <tbody>
+              {% for quote in quotes %}
+                <tr class="hover">
+                  <td><a class="num text-xs hover:underline" href="/quotes/{{ quote.id }}">{{ (quote.number or "—") | fa }}</a></td>
+                  <td class="num text-xs">{{ quote.total | money }}</td>
+                  <td>{{ badge(QUOTE_STATUS_LABELS.get(quote.status, quote.status), "badge-" ~ QUOTE_STATUS_BADGES.get(quote.status, "ghost")) }}</td>
+                  <td class="num text-xs">{{ quote.issue_date | jdate }}</td>
+                </tr>
+              {% else %}<tr><td colspan="4" class="text-center text-xs text-base-content/50">سند مالی ثبت نشده است.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'letters'" x-cloak>
+        <div class="space-y-2">
+          {% for letter in letters %}
+            <div class="flex items-center justify-between gap-2 text-sm">
+              <a class="min-w-0 truncate hover:underline" href="/letters/{{ letter.id }}">{{ letter.subject }}</a>
+              <span class="num whitespace-nowrap text-[11px] text-base-content/50">{{ (letter.number or "پیش‌نویس") | fa }}</span>
+            </div>
+          {% else %}<p class="text-xs text-base-content/50">نامه‌ای ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'tasks'" x-cloak>
+        <div class="space-y-2">
+          {% for task in tasks %}
+            <div class="flex items-center justify-between gap-2 text-sm">
+              <a class="min-w-0 truncate hover:underline" href="/tasks/{{ task.id }}">{{ task.title }}</a>
+              {{ badge(TASK_STATUS_LABELS.get(task.status, task.status), "badge-" ~ TASK_STATUS_BADGES.get(task.status, "ghost")) }}
+            </div>
+          {% else %}<p class="text-xs text-base-content/50">وظیفه‌ای ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'requests'" x-cloak>
+        <div class="space-y-2">
+          {% for request_row in requests %}
+            <div class="flex items-center justify-between gap-2 text-sm">
+              <a class="min-w-0 truncate hover:underline" href="/requests/{{ request_row.id }}">{{ request_row.subject }}</a>
+              {{ badge(REQUEST_STATUS_LABELS.get(request_row.status, request_row.status), "badge-" ~ REQUEST_STATUS_BADGES.get(request_row.status, "ghost")) }}
+            </div>
+          {% else %}<p class="text-xs text-base-content/50">درخواستی مرتبط ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'contacts'" x-cloak>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {% for contact in contacts %}
+            <a class="rounded-field border border-base-200 p-2 hover:border-primary" href="/contacts/{{ contact.id }}">
+              <div class="text-sm">{{ contact.full_name }} {% if contact.is_primary %}<span class="badge badge-primary badge-xs">رابط اصلی</span>{% endif %}</div>
+              <div class="text-[11px] text-base-content/55">{{ contact.job_title or "—" }} · {{ contact.mobile | fa }}</div>
+            </a>
+          {% else %}<p class="text-xs text-base-content/50">مخاطبی ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'documents'" x-cloak>
+        <div class="space-y-2">
+          {% for document in documents %}
+            <a class="flex items-center justify-between gap-2 text-sm hover:underline" href="/documents/{{ document.id }}">
+              <span class="min-w-0 truncate">🗄 {{ document.title }}</span>
+              <span class="num text-[11px] text-base-content/50">{{ document.doc_number or "" }}</span>
+            </a>
+          {% else %}<p class="text-xs text-base-content/50">سندی بایگانی نشده است.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="panel-body" x-show="tab === 'meetings'" x-cloak>
+        <div class="space-y-2">
+          {% for meeting in meetings %}
+            <a class="flex items-center justify-between gap-2 text-sm hover:underline" href="/meetings/{{ meeting.id }}">
+              <span class="min-w-0 truncate">👥 {{ meeting.title }}</span>
+              <span class="text-[11px] text-base-content/50">{{ meeting.start_at | jdt }}</span>
+            </a>
+          {% else %}<p class="text-xs text-base-content/50">جلسه‌ای ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">خط زمانی پرونده</h2><span class="text-[11px] text-base-content/50">فروش و اتوماسیون اداری در یک نگاه</span></div>
+      <div class="panel-body">{{ timeline_macro(timeline) }}</div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات پرونده</h2></div>
+      <div class="panel-body">
+        {% for field in fields %}{{ kv(field.label_text, cell(field, row, refs).text) }}{% endfor %}
+      </div>
+    </div>
+    {{ files_block(files, "company", row.id, "/companies/" ~ row.id) }}
+    {{ comments_block("company", row.id, comments, "/companies/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

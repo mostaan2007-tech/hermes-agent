@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, timeline as timeline_macro, comments_block, files_block, progress with context %}
+
+{% block title %}{{ row.title }} — فرصت فروش{% endblock %}
+
+{% block content %}
+{% call page_header(row.title, (company.name if company else "بدون شرکت") ~ " · " ~ (DEAL_STATUS_LABELS.get(row.status, row.status)), "📊") %}
+  <a class="btn btn-ghost btn-sm" href="/deals">فهرست فرصت‌ها</a>
+  <a class="btn btn-ghost btn-sm" href="/deals/board">قیف فروش</a>
+  <a class="btn btn-outline btn-sm" href="/deals/{{ row.id }}/edit">✎ ویرایش</a>
+  {% if can("deals.edit") %}
+    <form method="post" action="/deals/{{ row.id }}/close" class="flex items-center gap-1">
+      <input type="hidden" name="outcome" value="won">
+      <button class="btn btn-success btn-sm">✓ ثبت فروش</button>
+    </form>
+    <form method="post" action="/deals/{{ row.id }}/close" class="flex items-center gap-1">
+      <input type="hidden" name="outcome" value="lost">
+      <input name="lost_reason" class="input input-xs w-40" placeholder="دلیل از دست رفتن…">
+      <button class="btn btn-ghost btn-sm text-error">✕ از دست رفت</button>
+    </form>
+  {% endif %}
+  {% if can("quotes.create") %}<a class="btn btn-outline btn-sm" href="/quotes/new">+ سند مالی</a>{% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+  <div class="stat-card"><div class="text-xs text-base-content/60">مبلغ فرصت</div><div class="num mt-1 text-lg font-bold">{{ row.amount | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">احتمال موفقیت</div><div class="mt-1">{{ progress(row.probability) }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">ارزش اسناد مالی</div><div class="num mt-1 text-lg font-bold">{{ open_value | money }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">تاریخ پیش‌بینی بستن</div><div class="num mt-1 text-sm font-bold">{{ row.expected_close_date | jdate }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">اقدام بعدی</div><div class="mt-1 text-xs">{{ row.next_action or "—" }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">مسئول</div><div class="mt-1 text-xs">{{ users.get(row.owner_id, "—") }}</div></div>
+</div>
+
+<div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+  <div class="space-y-4 xl:col-span-2">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">فعالیت‌ها</h2>
+        {% if can("crm.create") %}<a class="text-[11px] text-primary hover:underline" href="/activities/new?deal_id={{ row.id }}">+ ثبت پیگیری</a>{% endif %}</div>
+      <div class="panel-body space-y-2">
+        {% for item in activities %}
+          <div class="flex items-center justify-between gap-2 rounded-field border border-base-200 px-3 py-2">
+            <div class="min-w-0">
+              <a class="text-sm hover:underline" href="/activities/{{ item.id }}">{{ ACTIVITY_KIND_ICONS.get(item.kind, "🔔") }} {{ item.subject }}</a>
+              <div class="text-[11px] text-base-content/55">{{ item.due_at | jdt }}{% if item.outcome %} · نتیجه: {{ item.outcome }}{% endif %}</div>
+            </div>
+            {{ badge(ACTIVITY_STATUS_LABELS.get(item.status, item.status), "badge-" ~ ACTIVITY_STATUS_BADGES.get(item.status, "ghost")) }}
+          </div>
+        {% else %}<p class="text-xs text-base-content/50">فعالیتی ثبت نشده است.</p>{% endfor %}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">اسناد مالی</h2></div>
+        <div class="panel-body space-y-2">
+          {% for quote in quotes %}
+            <div class="flex items-center justify-between gap-2 text-sm">
+              <a class="num hover:underline" href="/quotes/{{ quote.id }}">{{ (quote.number or "—") | fa }}</a>
+              <span class="num text-[11px]">{{ quote.total | money }}</span>
+            </div>
+          {% else %}<p class="text-xs text-base-content/50">سندی ثبت نشده است.</p>{% endfor %}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">وظایف و درخواست‌ها</h2></div>
+        <div class="panel-body space-y-2">
+          {% for task in tasks %}
+            <a class="flex items-center justify-between gap-2 text-sm hover:underline" href="/tasks/{{ task.id }}">
+              <span class="min-w-0 truncate">✓ {{ task.title }}</span>
+              {{ badge(TASK_STATUS_LABELS.get(task.status, task.status), "badge-" ~ TASK_STATUS_BADGES.get(task.status, "ghost")) }}
+            </a>
+          {% endfor %}
+          {% for request_row in requests %}
+            <a class="flex items-center justify-between gap-2 text-sm hover:underline" href="/requests/{{ request_row.id }}">
+              <span class="min-w-0 truncate">📄 {{ request_row.subject }}</span>
+              {{ badge(REQUEST_STATUS_LABELS.get(request_row.status, request_row.status), "badge-" ~ REQUEST_STATUS_BADGES.get(request_row.status, "ghost")) }}
+            </a>
+          {% endfor %}
+          {% if not tasks and not requests %}<p class="text-xs text-base-content/50">موردی ثبت نشده است.</p>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">خط زمانی فرصت</h2></div>
+      <div class="panel-body">{{ timeline_macro(timeline) }}</div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات</h2></div>
+      <div class="panel-body">
+        {% for field in fields %}{{ kv(field.label_text, cell(field, row, refs).text) }}{% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مراجع مرتبط</h2></div>
+      <div class="panel-body space-y-1 text-sm">
+        {% if company %}<a class="block hover:underline" href="/companies/{{ company.id }}">🏢 {{ company.name }}</a>{% endif %}
+        {% if contact %}<a class="block hover:underline" href="/contacts/{{ contact.id }}">👤 {{ contact.full_name }}</a>{% endif %}
+        {% for meeting in meetings %}
+          <a class="block hover:underline" href="/meetings/{{ meeting.id }}">👥 {{ meeting.title }}</a>
+        {% endfor %}
+        {% for letter in letters %}
+          <a class="block hover:underline" href="/letters/{{ letter.id }}">✉ {{ letter.subject }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    {{ files_block(files, "deal", row.id, "/deals/" ~ row.id) }}
+    {{ comments_block("deal", row.id, comments, "/deals/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}

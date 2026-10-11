@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header with context %}
+
+{% block title %}{{ "ویرایش نامه" if mode == "edit" else "نامه جدید" }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% set v = values or {} %}
+{% call page_header(("ویرایش نامه " ~ (letter.subject if letter else "")) if mode == "edit" else "ثبت نامه جدید",
+                    "متن نامه را بنویسید، زنجیره امضا را مشخص کنید و برای امضا ارسال کنید", "✉") %}
+  <a class="btn btn-ghost btn-sm" href="{{ ('/letters/' ~ letter.id) if mode == 'edit' else '/letters' }}">بازگشت</a>
+  {% if letter and letter.status == "draft" and peek_number %}
+    <span class="badge badge-outline">شماره پس از امضا: {{ peek_number | fa }}</span>
+  {% endif %}
+{% endcall %}
+
+{% set signer_payload = [] %}
+{% for person in users %}{% set _ = signer_payload.append({"id": person.id, "name": person.full_name ~ (" — " ~ person.position if person.position else "")}) %}{% endfor %}
+
+<form method="post" novalidate action="{{ ('/letters/' ~ letter.id ~ '/edit') if mode == 'edit' else '/letters/new' }}">
+  <input type="hidden" name="_mode" value="{{ mode }}">
+
+  <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+    <div class="xl:col-span-2 space-y-4">
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">مشخصات نامه</h2></div>
+        <div class="panel-body form-grid">
+          <div class="field">
+            <label class="field-label" for="l-direction">جهت نامه <span class="text-error">*</span></label>
+            <select id="l-direction" name="direction" class="select select-sm w-full">
+              {% for value, label in directions %}
+                <option value="{{ value }}" {% if v.get('direction') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-kind">نوع نامه</label>
+            <select id="l-kind" name="kind" class="select select-sm w-full">
+              {% for value, label in kinds %}
+                <option value="{{ value }}" {% if v.get('kind') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-date">تاریخ نامه <span class="text-error">*</span></label>
+            <input id="l-date" name="letter_date" data-jdp required class="input input-sm w-full jalali"
+                   value="{{ v.get('letter_date') | jdate if v.get('letter_date') else (today | jdate) }}">
+          </div>
+          <div class="field md:col-span-2">
+            <label class="field-label" for="l-subject">موضوع <span class="text-error">*</span></label>
+            <input id="l-subject" name="subject" required class="input input-sm w-full {{ 'input-error' if errors.get('subject') }}"
+                   value="{{ v.get('subject') or '' }}">
+            {% if errors.get('subject') %}<span class="field-error">{{ errors['subject'] }}</span>{% endif %}
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-priority">فوریت</label>
+            <select id="l-priority" name="priority" class="select select-sm w-full">
+              {% for value, label in priorities %}
+                <option value="{{ value }}" {% if v.get('priority') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-conf">طبقه‌بندی</label>
+            <select id="l-conf" name="confidentiality" class="select select-sm w-full">
+              {% for value, label in confidentiality %}
+                <option value="{{ value }}" {% if v.get('confidentiality') == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-ref">شماره عطف / ارجاع</label>
+            <input id="l-ref" name="ref_number" class="input input-sm w-full num" value="{{ v.get('ref_number') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-registry">شماره اندیکاتور (ثبت دفتر)</label>
+            <input id="l-registry" name="registry_number" class="input input-sm w-full num" value="{{ v.get('registry_number') or '' }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">متن نامه</h2></div>
+        <div class="panel-body">
+          <textarea id="l-body" name="body" rows="14" class="textarea textarea-bordered letter-body w-full text-sm"
+                    placeholder="احتراماً، به استحضار می‌رساند…">{{ v.get('body') or '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">طرف مکاتبه و مراجع مرتبط</h2></div>
+        <div class="panel-body form-grid">
+          <div class="field">
+            <label class="field-label" for="l-company">شرکت / مشتری</label>
+            <select id="l-company" name="company_id" class="select select-sm w-full">
+              <option value="">—</option>
+              {% for company in companies %}
+                <option value="{{ company.id }}" {% if v.get('company_id') == company.id %}selected{% endif %}>{{ company.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-contact">مخاطب</label>
+            <select id="l-contact" name="contact_id" class="select select-sm w-full">
+              <option value="">—</option>
+              {% for contact in contacts %}
+                <option value="{{ contact.id }}" {% if v.get('contact_id') == contact.id %}selected{% endif %}>{{ contact.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-deal">فرصت فروش</label>
+            <select id="l-deal" name="deal_id" class="select select-sm w-full">
+              <option value="">—</option>
+              {% for deal in deals %}
+                <option value="{{ deal.id }}" {% if v.get('deal_id') == deal.id %}selected{% endif %}>{{ deal.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-org">سازمان طرف مکاتبه</label>
+            <input id="l-org" name="correspondent_org" class="input input-sm w-full" value="{{ v.get('correspondent_org') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-corr">نام طرف مکاتبه</label>
+            <input id="l-corr" name="correspondent_name" class="input input-sm w-full" value="{{ v.get('correspondent_name') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-sender">فرستنده</label>
+            <input id="l-sender" name="sender_name" class="input input-sm w-full" value="{{ v.get('sender_name') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-recipient">گیرنده</label>
+            <input id="l-recipient" name="recipient_name" class="input input-sm w-full" value="{{ v.get('recipient_name') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-delivery">روش ارسال / دریافت</label>
+            <input id="l-delivery" name="delivery_method" class="input input-sm w-full" placeholder="پست، پیک، حضوری، ایمیل…"
+                   value="{{ v.get('delivery_method') or '' }}">
+          </div>
+          <div class="field">
+            <label class="field-label" for="l-tags">برچسب‌ها</label>
+            <input id="l-tags" name="tags" class="input input-sm w-full" placeholder="با کاما جدا کنید" value="{{ v.get('tags') or '' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">زنجیره امضا</h2><span class="text-[11px] text-base-content/50">به‌ترتیب</span></div>
+        <div class="panel-body">
+          <div x-data="orderPicker({{ selected_signers | tojson }}, {{ signer_payload | tojson }}, 'signer_ids')">
+            <ol class="space-y-1">
+              <template x-for="(id, index) in selected" :key="id">
+                <li class="flex items-center gap-2 rounded-field border border-base-200 px-2 py-1 text-sm">
+                  <span class="num badge badge-primary badge-sm" x-text="fa(index + 1)"></span>
+                  <span class="min-w-0 flex-1 truncate" x-text="labelOf(id)"></span>
+                  <input type="hidden" :name="field" :value="id">
+                  <button type="button" class="btn btn-ghost btn-xs" @click="move(index, -1)" :disabled="index === 0">↑</button>
+                  <button type="button" class="btn btn-ghost btn-xs" @click="move(index, 1)" :disabled="index === selected.length - 1">↓</button>
+                  <button type="button" class="btn btn-ghost btn-xs text-error" @click="remove(id)">✕</button>
+                </li>
+              </template>
+            </ol>
+            <p class="py-2 text-[11px] text-base-content/50" x-show="!selected.length">امضاکننده‌ای انتخاب نشده است.</p>
+            <select class="select select-sm w-full" @change="add($event.target.value); $event.target.value=''">
+              <option value="">+ افزودن امضاکننده</option>
+              <template x-for="person in options" :key="person.id">
+                <option :value="person.id" x-text="person.name" x-show="!selected.includes(String(person.id))"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">رونوشت به</h2></div>
+        <div class="panel-body">
+          <div x-data="orderPicker({{ selected_recipients | tojson }}, {{ signer_payload | tojson }}, 'recipient_ids', false)">
+            <div class="flex flex-wrap gap-1">
+              <template x-for="id in selected" :key="id">
+                <span class="badge badge-sm badge-outline gap-1">
+                  <span x-text="labelOf(id)"></span>
+                  <input type="hidden" :name="field" :value="id">
+                  <button type="button" @click="remove(id)">✕</button>
+                </span>
+              </template>
+            </div>
+            <select class="select select-sm mt-2 w-full" @change="add($event.target.value); $event.target.value=''">
+              <option value="">+ افزودن رونوشت</option>
+              <template x-for="person in options" :key="person.id">
+                <option :value="person.id" x-text="person.name" x-show="!selected.includes(String(person.id))"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-body space-y-2">
+          <button class="btn btn-outline btn-sm w-full">💾 ذخیره</button>
+          {% if not letter or letter.status in ("draft", "returned") %}
+            <button name="then_send" value="1" class="btn btn-primary btn-sm w-full">✍ ذخیره و ارسال برای امضا</button>
+          {% endif %}
+          {% if letter %}
+            <a class="btn btn-ghost btn-sm w-full" href="/letters/{{ letter.id }}/print" target="_blank">🖨 پیش‌نمایش چاپ</a>
+          {% endif %}
+          <p class="text-[11px] text-base-content/50">
+            شماره رسمی نامه در لحظه صدور و به‌صورت پیوسته بدون پرش تخصیص می‌یابد (پیش‌نمایش: {{ peek_number | fa }}).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

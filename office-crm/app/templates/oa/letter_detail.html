@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, files_block, comments_block, timeline with context %}
+
+{% block title %}{{ letter.subject }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% set status = letter.status %}
+{% call page_header(letter.subject, "نامه " ~ LETTER_DIRECTION_LABELS.get(letter.direction, letter.direction) ~ " · " ~ LETTER_KIND_LABELS.get(letter.kind, letter.kind), "✉") %}
+  <a class="btn btn-ghost btn-sm" href="/letters">فهرست نامه‌ها</a>
+  <a class="btn btn-outline btn-sm" href="/letters/{{ letter.id }}/print" target="_blank">🖨 چاپ</a>
+  {% if can_edit and status != "issued" %}<a class="btn btn-outline btn-sm" href="/letters/{{ letter.id }}/edit">✎ ویرایش</a>{% endif %}
+  {% if can_sign %}
+    <form method="post" action="/letters/{{ letter.id }}/sign">
+      <button class="btn btn-success btn-sm">✍ امضا و ثبت</button>
+    </form>
+    <form method="post" action="/letters/{{ letter.id }}/reject" class="flex items-center gap-1">
+      <input name="comment" class="input input-xs w-40" placeholder="دلیل برگشت…">
+      <button class="btn btn-ghost btn-sm text-error">برگشت</button>
+    </form>
+  {% endif %}
+  {% if can_issue and status in ("signed", "draft") and letter.direction != "incoming" %}
+    <form method="post" action="/letters/{{ letter.id }}/issue">
+      <button class="btn btn-primary btn-sm">📌 صدور و تخصیص شماره</button>
+    </form>
+  {% endif %}
+  {% if can_edit and status == "awaiting_signature" %}
+    <form method="post" action="/letters/{{ letter.id }}/withdraw">
+      <button class="btn btn-ghost btn-sm">بازگشت به پیش‌نویس</button>
+    </form>
+  {% endif %}
+  {% if can_edit and status not in ("archived",) %}
+    <form method="post" action="/letters/{{ letter.id }}/archive">
+      <button class="btn btn-ghost btn-sm">بایگانی</button>
+    </form>
+  {% endif %}
+  {% if can("letters.delete") %}
+    <form method="post" action="/letters/{{ letter.id }}/delete" onsubmit="return confirm('این نامه حذف شود؟')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn btn-ghost btn-sm text-error">حذف</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-4">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">متن نامه</h2>
+        <div class="flex items-center gap-1">
+          {{ badge(LETTER_STATUS_LABELS.get(status, status), "badge-" ~ LETTER_STATUS_BADGES.get(status, "ghost")) }}
+          {{ badge(PRIORITY_LABELS.get(letter.priority, letter.priority), "badge-" ~ PRIORITY_BADGES.get(letter.priority, "ghost")) }}
+          {% if letter.confidentiality != "normal" %}{{ badge(CONFIDENTIALITY_LABELS.get(letter.confidentiality, letter.confidentiality), "badge-error") }}{% endif %}
+        </div>
+      </div>
+      <div class="panel-body">
+        <pre class="whitespace-pre-wrap font-sans text-sm leading-8">{{ letter.body or "متن نامه ثبت نشده است." }}</pre>
+      </div>
+      <div class="panel-body border-t border-base-200 text-[11px] text-base-content/55">
+        ایجاد: {{ letter.created_at | jdt }} · آخرین تغییر: {{ letter.updated_at | reltime }}
+        {% if letter.issued_at %} · صدور: {{ letter.issued_at | jdt }}{% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">گردش امضا</h2><span class="text-[11px] text-base-content/50">به‌ترتیب زنجیره</span></div>
+      <div class="panel-body">
+        {% if signers %}
+          <ol class="space-y-2">
+            {% for person in signers %}
+              {% set done = (letter.signatures or []) | selectattr("user_id", "equalto", person.id) | list %}
+              <li class="flex items-center justify-between gap-2 rounded-field border border-base-200 px-3 py-2">
+                <span class="flex items-center gap-2 text-sm">
+                  <span class="num badge badge-sm {{ 'badge-success' if done else 'badge-ghost' }}">{{ loop.index | fa }}</span>
+                  {{ person.full_name }}
+                  {% if person.position %}<span class="text-[11px] text-base-content/50">{{ person.position }}</span>{% endif %}
+                </span>
+                <span class="text-[11px]">
+                  {% if done %}
+                    <span class="text-success">امضا شد — {{ done[0].at | reltime if done[0].at else "" }}</span>
+                  {% elif letter.current_signer_id == person.id and status == "awaiting_signature" %}
+                    <span class="text-warning">در انتظار امضا</span>
+                  {% else %}
+                    <span class="text-base-content/50">در نوبت</span>
+                  {% endif %}
+                </span>
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="text-xs text-base-content/50">زنجیره امضا تعیین نشده است.</p>
+        {% endif %}
+
+        {% if letter.signatures %}
+          <div class="mt-4 space-y-2 border-t border-base-200 pt-3">
+            {% for item in letter.signatures %}
+              <div class="text-xs">
+                <span class="font-medium">{{ users_map.get(item.user_id, "—") }}</span>
+                <span class="text-base-content/60"> — {{ item.at | reltime if item.at else "" }}</span>
+                {% if item.comment %}<div class="mt-0.5 text-base-content/70">{{ item.comment }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if status in ("draft", "returned") %}
+          <form method="post" action="/letters/{{ letter.id }}/send" class="mt-4 flex flex-wrap items-center gap-2 border-t border-base-200 pt-3">
+            {% for person in signers %}<input type="hidden" name="signer_ids" value="{{ person.id }}">{% endfor %}
+            <span class="text-xs text-base-content/60">ارسال به زنجیره امضای تعیین‌شده</span>
+            <button class="btn btn-primary btn-sm">✍ ارسال برای امضا</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if related_letters %}
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">نامه‌های مرتبط</h2></div>
+        <div class="panel-body space-y-1 text-sm">
+          {% for item in related_letters %}
+            <a class="block hover:underline" href="/letters/{{ item.id }}">{{ item.number or "پیش‌نویس" }} — {{ item.subject }}</a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات ثبتی</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("شماره نامه", (letter.number or "—") | fa) }}
+        {{ kv("شماره اندیکاتور", (letter.registry_number or "—") | fa) }}
+        {{ kv("تاریخ نامه", letter.letter_date | jdate) }}
+        {{ kv("شماره عطف", (letter.ref_number or "—") | fa) }}
+        {{ kv("سازمان طرف مکاتبه", letter.correspondent_org) }}
+        {{ kv("نام طرف مکاتبه", letter.correspondent_name) }}
+        {{ kv("فرستنده", letter.sender_name) }}
+        {{ kv("گیرنده", letter.recipient_name) }}
+        {{ kv("روش ارسال", letter.delivery_method) }}
+        {{ kv("ثبت‌کننده", creator.full_name if creator else None) }}
+        {% if recipients %}
+          {{ kv("رونوشت", recipients | map(attribute="full_name") | join("، ")) }}
+        {% endif %}
+        {% if letter.tags %}{{ kv("برچسب‌ها", letter.tags) }}{% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مراجع مرتبط</h2></div>
+      <div class="panel-body text-sm">
+        {% if company %}
+          <a class="block hover:underline" href="/companies/{{ company.id }}">🏢 {{ company.name }}</a>
+        {% endif %}
+        {% if contact %}
+          <a class="block hover:underline" href="/contacts/{{ contact.id }}">👤 {{ contact.full_name }}</a>
+        {% endif %}
+        {% if deal %}
+          <a class="block hover:underline" href="/deals/{{ deal.id }}">📊 {{ deal.title }}</a>
+        {% endif %}
+        {% if not (company or contact or deal) %}
+          <p class="text-xs text-base-content/50">به پرونده‌ای متصل نیست.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if tasks %}
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">وظایف مرتبط</h2></div>
+        <div class="panel-body space-y-1 text-sm">
+          {% for task in tasks %}
+            <a class="flex items-center justify-between gap-2 hover:underline" href="/tasks/{{ task.id }}">
+              <span class="truncate">{{ task.title }}</span>
+              {{ badge(TASK_STATUS_LABELS.get(task.status, task.status), "badge-" ~ TASK_STATUS_BADGES.get(task.status, "ghost")) }}
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {{ files_block(files, "letter", letter.id, "/letters/" ~ letter.id) }}
+    {{ comments_block("letter", letter.id, comments, "/letters/" ~ letter.id) }}
+  </div>
+</div>
+{% endblock %}

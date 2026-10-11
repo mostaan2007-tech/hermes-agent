@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header, timeline with context %}
+
+{% block title %}کارتابل امضا — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("کارتابل امضا", "نامه‌هایی که برای امضای شما ارسال شده است", "✍") %}
+  <a class="btn btn-ghost btn-sm" href="/letters">همه نامه‌ها</a>
+{% endcall %}
+
+<div class="panel">
+  <div class="panel-head"><h2 class="text-sm font-medium">در انتظار امضای شما ({{ rows | length | fa }})</h2></div>
+  <div class="divide-y divide-base-200">
+    {% for letter in rows %}
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <a class="text-sm font-medium hover:text-primary hover:underline" href="/letters/{{ letter.id }}">{{ letter.subject }}</a>
+            {{ badge(LETTER_DIRECTION_LABELS.get(letter.direction, letter.direction), "badge-" ~ LETTER_DIRECTION_BADGES.get(letter.direction, "ghost")) }}
+            {{ badge(PRIORITY_LABELS.get(letter.priority, letter.priority), "badge-" ~ PRIORITY_BADGES.get(letter.priority, "ghost")) }}
+          </div>
+          <div class="mt-1 text-[11px] text-base-content/55">
+            شماره پیش‌بینی‌شده: {{ letter.number or "پس از امضا تخصیص می‌یابد" }} · تاریخ نامه: {{ letter.letter_date | jdate }}
+            {% if letter.correspondent_org %} · طرف مکاتبه: {{ letter.correspondent_org }}{% endif %}
+          </div>
+          <div class="mt-1 line-clamp-1 text-xs text-base-content/60">{{ letter.body | truncate(160) }}</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <form method="post" action="/letters/{{ letter.id }}/sign">
+            <button class="btn btn-success btn-sm">✍ امضا و ثبت</button>
+          </form>
+          <form method="post" action="/letters/{{ letter.id }}/reject" class="flex items-center gap-1">
+            <input name="comment" class="input input-xs w-32" placeholder="دلیل برگشت…">
+            <button class="btn btn-ghost btn-sm text-error">برگشت</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      {{ empty("نامه‌ای در انتظار امضای شما نیست", "وقتی نامه‌ای برای امضا به شما ارجاع شود، اینجا نمایش داده می‌شود.", "✍") }}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}کارتابل من — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("کارتابل من", "درخواست‌ها، نامه‌ها و وظایفی که منتظر اقدام شما هستند", "📥") %}
+  <a class="btn btn-ghost btn-sm" href="/notifications">اعلان‌ها</a>
+  <a class="btn btn-ghost btn-sm" href="/requests/inbox">صندوق تأیید درخواست‌ها</a>
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="panel lg:col-span-2">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">در انتظار اقدام شما ({{ inbox | length | fa }})</h2>
+    </div>
+    <div class="panel-body p-0">
+      {% for item in inbox %}
+        <a href="{{ item.url }}" class="flex items-center gap-3 border-b border-base-200 px-4 py-3 last:border-0 hover:bg-base-200/60">
+          <span class="grid size-9 shrink-0 place-items-center rounded-full bg-base-200 text-sm">
+            {{ {"approval": "✅", "signature": "✍️", "task": "✓", "deal": "📊", "activity": "🔔"}.get(item.kind, "•") }}
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm">{{ item.title }}</span>
+            <span class="block text-[11px] text-base-content/50">{{ item.subtitle }}</span>
+          </span>
+          <span class="whitespace-nowrap text-[11px] text-base-content/45">{{ item.at | reltime }}</span>
+        </a>
+      {% else %}
+        {{ empty("کارتابل شما خالی است 🎉", "هیچ درخواست، نامه یا وظیفه‌ای در انتظار اقدام شما نیست.", "📭") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">اعلان‌های اخیر</h2>
+      <form method="post" action="/notifications/read-all">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-ghost btn-xs">خواندن همه</button>
+      </form>
+    </div>
+    <div class="panel-body p-0">
+      {% for note in notifications %}
+        <div class="flex items-start gap-2 border-b border-base-200 px-4 py-2.5 last:border-0 {{ '' if note.is_read else 'bg-primary/5' }}">
+          <span class="min-w-0 flex-1">
+            <a href="{{ note.url or '/notifications' }}" class="block truncate text-sm {{ '' if note.is_read else 'font-medium' }}">{{ note.title }}</a>
+            {% if note.body %}<span class="block truncate text-[11px] text-base-content/50">{{ note.body }}</span>{% endif %}
+            <span class="block text-[11px] text-base-content/45">{{ note.created_at | reltime }}</span>
+          </span>
+          {% if not note.is_read %}
+            <form method="post" action="/notifications/{{ note.id }}/read">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="next" value="/inbox">
+              <button class="btn btn-ghost btn-xs" title="خوانده شد">✓</button>
+            </form>
+          {% endif %}
+        </div>
+      {% else %}
+        {{ empty("اعلانی ندارید", None, "🔔") }}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

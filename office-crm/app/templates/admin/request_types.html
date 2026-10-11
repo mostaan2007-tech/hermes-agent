@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}انواع درخواست — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("انواع درخواست و گردش‌کار تأیید", "برای هر نوع درخواست، فیلدها و زنجیره تأیید را تعریف کنید", "🧩") %}
+  <a class="btn btn-primary btn-sm" href="/admin/request-types/new">+ نوع درخواست جدید</a>
+  <a class="btn btn-ghost btn-sm" href="/requests/new">نمایش فرم‌ها</a>
+{% endcall %}
+
+<div class="table-wrap">
+  <table class="tbl">
+    <thead>
+      <tr><th class="w-12"></th><th>نام</th><th class="w-24">کد</th><th class="w-20">فیلدها</th>
+        <th class="w-20">مراحل تأیید</th><th class="w-24">پیوست</th><th class="w-20">وضعیت</th><th class="w-24"></th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="hover">
+          <td class="text-xl">{{ row.icon or "📄" }}</td>
+          <td>
+            <a class="text-sm font-medium hover:text-primary hover:underline" href="/admin/request-types/{{ row.id }}/edit">{{ row.name }}</a>
+            <div class="text-[11px] text-base-content/50">{{ row.description or "" }}</div>
+          </td>
+          <td class="num text-xs">{{ row.code }}</td>
+          <td class="num text-xs">{{ (row.fields or []) | length | fa }}</td>
+          <td class="num text-xs">{{ (row.approval_steps or []) | length | fa }}</td>
+          <td class="text-xs">{{ "الزامی" if row.requires_attachment else "اختیاری" }}</td>
+          <td>{{ badge("فعال" if row.is_active else "غیرفعال", "badge-success" if row.is_active else "badge-ghost") }}</td>
+          <td>
+            <div class="flex items-center gap-1">
+              <a class="btn btn-ghost btn-xs" href="/admin/request-types/{{ row.id }}/edit">✎</a>
+              <form method="post" action="/admin/request-types/{{ row.id }}/toggle">
+                <button class="btn btn-ghost btn-xs">{{ "غیرفعال" if row.is_active else "فعال" }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8">{{ empty("نوع درخواستی تعریف نشده است", "با دکمه بالا اولین نوع (مثلاً مرخصی) را بسازید.", "🧩") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4 panel">
+  <div class="panel-head"><h2 class="text-sm font-medium">نمونه قالب JSON فیلدها و مراحل</h2></div>
+  <div class="panel-body grid grid-cols-1 gap-3 text-xs lg:grid-cols-2">
+    <div>
+      <div class="mb-1 text-base-content/60">فیلدهای فرم (fields):</div>
+      <pre class="ltr overflow-x-auto rounded-field bg-base-200 p-3">[
+  {"name": "reason", "label": "علت درخواست", "type": "textarea", "required": true},
+  {"name": "vehicle", "label": "وسیله سفر", "type": "select", "choices": ["سواری", "هواپیما", "قطار"]}
+]</pre>
+    </div>
+    <div>
+      <div class="mb-1 text-base-content/60">مراحل تأیید (steps):</div>
+      <pre class="ltr overflow-x-auto rounded-field bg-base-200 p-3">[
+  {"title": "تأیید مدیر واحد", "role": "department_manager"},
+  {"title": "تأیید مدیرعامل", "role": "admin"},
+  {"title": "تأیید مالی", "user_id": 3}
+]</pre>
+    </div>
+  </div>
+</div>
+{% endblock %}

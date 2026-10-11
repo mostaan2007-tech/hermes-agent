@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}درخواست جدید — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("درخواست جدید", "نوع درخواست را انتخاب کنید تا فرم مربوطه باز شود", "📄") %}
+  <a class="btn btn-ghost btn-sm" href="/requests">درخواست‌های من</a>
+  <a class="btn btn-ghost btn-sm" href="/requests/inbox">کارتابل تأیید</a>
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {% for item in types %}
+        <a class="panel p-4 transition-shadow hover:shadow-md" href="/requests/new?type={{ item.id }}">
+          <div class="flex items-start justify-between">
+            <span class="text-2xl">{{ item.icon or "📄" }}</span>
+            {% if item.requires_attachment %}<span class="text-[10px] text-base-content/50">نیازمند پیوست</span>{% endif %}
+          </div>
+          <div class="mt-2 text-sm font-medium">{{ item.name }}</div>
+          <p class="mt-1 line-clamp-2 text-[11px] text-base-content/60">{{ item.description or "—" }}</p>
+          <div class="mt-2 flex items-center gap-1 text-[10px] text-base-content/50">
+            <span>{{ (item.approval_steps or []) | length | fa }} مرحله تأیید</span>
+            {% if item.allow_half_day %}· <span>نیم‌روز پشتیبانی می‌شود</span>{% endif %}
+          </div>
+        </a>
+      {% else %}
+        <div class="panel sm:col-span-2 xl:col-span-3">
+          {{ empty("نوع درخواستی تعریف نشده است", "مدیر سامانه باید از بخش مدیریت ← انواع درخواست، انواع را تعریف کند.", "📄") }}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">آخرین درخواست‌های من</h2></div>
+    <div class="panel-body space-y-2">
+      {% for row in my_requests %}
+        <div class="flex items-center justify-between gap-2 text-sm">
+          <a class="min-w-0 truncate hover:underline" href="/requests/{{ row.id }}">{{ row.subject }}</a>
+          {{ badge(REQUEST_STATUS_LABELS.get(row.status, row.status), "badge-" ~ REQUEST_STATUS_BADGES.get(row.status, "ghost")) }}
+        </div>
+      {% else %}
+        {{ empty("درخواستی ثبت نکرده‌اید", None, "🗂") }}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

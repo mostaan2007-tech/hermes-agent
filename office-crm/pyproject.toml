@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "office-crm"
+version = "1.0.0"
+description = "سامانه یکپارچه مدیریت مشتریان (CRM) و اتوماسیون اداری — یک برنامه، یک پایگاه داده، یک ورود"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Office CRM" }]
+keywords = ["crm", "office-automation", "fastapi", "sqlite", "rtl", "jalali", "persian"]
+classifiers = [
+  "Framework :: FastAPI",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Natural Language :: Persian",
+]
+
+# Deliberately small: SQLite, no Redis, no Celery, no Node at runtime.
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlmodel>=0.0.22",
+  "sqlalchemy>=2.0.30",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.2",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.9",
+  "apscheduler>=3.10",
+  "alembic>=1.13",
+  "jdatetime>=4.1",
+]
+
+[project.optional-dependencies]
+# Server side PDF export. Needs Pango/Cairo; browsers can already print to PDF,
+# so this stays optional to keep the default install small.
+pdf = ["weasyprint>=62"]
+dev = [
+  "pytest>=8",
+  "httpx>=0.27",
+  "ruff>=0.6",
+  "hypothesis>=6.100",
+  "playwright>=1.45",
+  "locust>=2.29",
+]
+
+[project.scripts]
+office-crm = "app.__main__:main"
+
+[project.urls]
+Documentation = "https://example.local/office-crm/docs"
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.setuptools.package-data]
+app = ["templates/**/*.html", "static/**/*"]
+
+# ------------------------------------------------------------------ tooling
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["app", "tests", "scripts", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+  "E501",    # long Persian strings
+  "RUF001",  # ambiguous unicode — Persian text is full of it
+  "RUF002",
+  "RUF003",
+  "N803",    # request names mirror the HTTP API
+  "B008",    # FastAPI dependencies live in argument defaults on purpose
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ty]
+python-version = "3.11"

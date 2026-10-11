@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, page_header, kv with context %}
+
+{% block title %}پشتیبان‌گیری — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("پشتیبان‌گیری و بازیابی", "نسخه پشتیبان کامل پایگاه داده و فایل‌های پیوست", "💾") %}
+  <a class="btn btn-ghost btn-sm" href="/admin/settings">تنظیمات</a>
+  <form method="post" action="/admin/backup/create">
+    <button class="btn btn-primary btn-sm">+ تهیه نسخه پشتیبان</button>
+  </form>
+{% endcall %}
+
+{% if note %}
+  <div class="alert alert-info mb-3 text-sm">📌 {{ note }}</div>
+{% endif %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="lg:col-span-2 panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">نسخه‌های پشتیبان ({{ backups | length | fa }})</h2>
+      <span class="text-[11px] text-base-content/50">هر نسخه شامل پایگاه داده و پیوست‌ها است</span></div>
+    <div class="divide-y divide-base-200">
+      {% for item in backups %}
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <div>
+            <div class="num text-sm">{{ item.path.name }}</div>
+            <div class="text-[11px] text-base-content/55">
+              {{ item.size | filesize }} ·
+              {{ item.created_at | reltime }}
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <a class="btn btn-outline btn-xs" href="/admin/backup/{{ item.path.name }}/download">⬇ دانلود</a>
+            <form method="post" action="/admin/backup/{{ item.path.name }}/delete" onsubmit="return confirm('این نسخه حذف شود؟')">
+              <button class="btn btn-ghost btn-xs text-error">حذف</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        {{ empty("نسخه پشتیبانی وجود ندارد", "با دکمه «تهیه نسخه پشتیبان» اولین نسخه را بسازید.", "💾") }}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مسیرها و تنظیمات</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("پایگاه داده", db_url, "text-[11px] ltr") }}
+        {{ kv("پوشه داده", data_dir, "text-[11px] ltr") }}
+        {{ kv("پوشه پیوست‌ها", upload_dir, "text-[11px] ltr") }}
+        {{ kv("پوشه پشتیبان", backup_dir, "text-[11px] ltr") }}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">راهنمای بازیابی</h2></div>
+      <div class="panel-body space-y-2 text-xs text-base-content/70">
+        <p>۱. سرویس سامانه را متوقف کنید.</p>
+        <p>۲. فایل پشتیبان را دانلود کرده و از حالت zip خارج کنید.</p>
+        <p>۳. فایل <span class="ltr num">office.db</span> را در پوشه داده جایگزین کنید و پوشه <span class="ltr num">uploads</span> را بازگردانید.</p>
+        <p>۴. سرویس را دوباره اجرا کنید و از منوی «گزارش رویدادها» صحت داده‌ها را بررسی کنید.</p>
+        <p class="rounded-field bg-warning/10 p-2 text-warning">
+          پیشنهاد: نسخه‌های هفتگی را روی یک دیسک جداگانه یا فضای ابری سازمان نگه دارید (restic/litestream).
+        </p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">پشتیبان‌گیری خودکار</h2></div>
+      <div class="panel-body text-xs text-base-content/70">
+        <p>زمان‌بند داخلی سامانه هر شب ساعت ۲۳ نسخه پشتیبان می‌سازد و نسخه‌های قدیمی‌تر از حد تعیین‌شده را پاک می‌کند.</p>
+        <p class="mt-2">برای پشتیبان خارج از سرور، پوشه پشتیبان را با <span class="ltr">rsync</span> یا <span class="ltr">litestream</span> به مقصد دیگر منتقل کنید.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

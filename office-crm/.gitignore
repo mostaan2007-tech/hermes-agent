@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node (Tailwind build only)
+node_modules/
+frontend/node_modules/
+
+# Runtime data: database, uploads, backups, logs, secrets
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Local config
+.env
+.env.local
+
+# Hypothesis
+.hypothesis/
+
+# Playwright
+playwright-report/
+test-results/

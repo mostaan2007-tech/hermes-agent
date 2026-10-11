@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}قیف فروش — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("قیف فروش", "کارت‌ها را با ماوس بکشید و روی مرحله دلخواه رها کنید — تغییر مرحله بلافاصله ذخیره می‌شود", "📊") %}
+  <a class="btn btn-ghost btn-sm" href="/deals">فهرست فرصت‌ها</a>
+  {% if can_create %}<a class="btn btn-primary btn-sm" href="/deals/new">＋ فرصت فروش</a>{% endif %}
+{% endcall %}
+
+<div class="mb-3 flex flex-wrap items-center gap-2">
+  <div class="stat-card flex-1 py-2">
+    <span class="text-[11px] text-base-content/55">ارزش کل فرصت‌های باز</span>
+    <span class="num ms-2 text-sm font-bold text-primary">{{ total_amount | money }}</span>
+  </div>
+  <form method="get" action="/deals/board" class="flex items-center gap-2">
+    <input name="q" value="{{ q }}" class="input input-sm w-44" placeholder="جست‌وجوی عنوان…">
+    {% if can('deals.view_all') %}
+      <select name="owner" class="select select-sm">
+        <option value="">همه کارشناسان</option>
+        {% for value, label in owners %}
+          <option value="{{ value }}" {% if owner_filter == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+    <button class="btn btn-ghost btn-sm">فیلتر</button>
+  </form>
+</div>
+
+{% if columns %}
+  <div class="flex gap-3 overflow-x-auto pb-3" data-kanban>
+    {% for column in columns %}
+      <section class="kanban-col">
+        <header class="flex items-center justify-between px-1">
+          <span class="flex items-center gap-2 text-sm font-medium">
+            <span class="inline-block size-2 rounded-full
+              {{ {'won': 'bg-success', 'lost': 'bg-error'}.get(column.stage.kind, 'bg-primary') }}"></span>
+            {{ column.stage.name }}
+            <span class="badge badge-xs badge-ghost">{{ column.count | fa }}</span>
+          </span>
+          <span class="num text-[11px] text-base-content/50">{{ column.amount | money }}</span>
+        </header>
+
+        <div class="min-h-24 space-y-2" data-stage-id="{{ column.stage.id }}">
+          {% for deal in column.deals %}
+            <article class="kanban-card" data-deal-id="{{ deal.id }}" draggable="{{ 'true' if can_edit else 'false' }}">
+              <div class="flex items-start justify-between gap-2">
+                <a class="text-sm font-medium hover:underline" href="/deals/{{ deal.id }}">{{ deal.title }}</a>
+                <span class="num text-[11px] text-base-content/50">{{ deal.probability | fa }}٪</span>
+              </div>
+              <div class="mt-1 text-xs text-base-content/60">{{ companies.get(deal.company_id, "—") }}</div>
+              <div class="mt-2 flex items-center justify-between gap-2">
+                <span class="num text-xs font-medium text-primary">{{ deal.amount | money }}</span>
+                <span class="text-[11px] text-base-content/45">{{ users.get(deal.owner_id, "") }}</span>
+              </div>
+              {% if deal.next_action %}
+                <div class="mt-1 truncate text-[11px] text-base-content/50">↪ {{ deal.next_action }}</div>
+              {% endif %}
+            </article>
+          {% else %}
+            <p class="px-1 py-3 text-center text-[11px] text-base-content/40">خالی</p>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="panel">{{ empty("مرحله‌ای تعریف نشده است", "ابتدا مراحل قیف فروش را در تنظیمات بسازید.", "🪜") }}</div>
+{% endif %}
+{% endblock %}

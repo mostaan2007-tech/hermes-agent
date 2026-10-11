@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header with context %}
+
+{% block title %}{{ type_.name }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% set v = submitted or {} %}
+{% call page_header((("ویرایش " if is_edit else "درخواست ") ~ type_.name) | string, type_.description or "فرم این نوع درخواست را تکمیل کنید", type_.icon or "📄") %}
+  <a class="btn btn-ghost btn-sm" href="/requests/new">انتخاب نوع دیگر</a>
+  <a class="btn btn-ghost btn-sm" href="/requests">درخواست‌های من</a>
+{% endcall %}
+
+<form method="post" action="{{ form_action | default("/requests/new") }}" class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+  <input type="hidden" name="type_id" value="{{ type_.id }}">
+
+  <div class="xl:col-span-2 space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">اطلاعات اصلی</h2></div>
+      <div class="panel-body form-grid">
+        <div class="field md:col-span-3">
+          <label class="field-label" for="r-subject">موضوع درخواست</label>
+          <input id="r-subject" name="subject" class="input input-sm w-full" value="{{ v.get('subject') or type_.name }}"
+                 placeholder="{{ type_.name }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="r-start">از تاریخ</label>
+          <input id="r-start" name="start_date" data-jdp class="input input-sm w-full jalali" value="{{ v.get('start_date') or '' }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="r-end">تا تاریخ</label>
+          <input id="r-end" name="end_date" data-jdp class="input input-sm w-full jalali" value="{{ v.get('end_date') or '' }}">
+        </div>
+        {% if type_.allow_half_day %}
+          <div class="field">
+            <label class="field-label" for="r-half">مدت (روز) — نیم‌روز با اعشار</label>
+            <input id="r-half" name="half_day_days" class="input input-sm w-full num" placeholder="۰.۵" value="{{ v.get('half_day_days') or '' }}">
+          </div>
+        {% endif %}
+        <div class="field">
+          <label class="field-label" for="r-amount">مبلغ (در صورت نیاز)</label>
+          <input id="r-amount" name="amount" class="input input-sm w-full num" value="{{ v.get('amount') or '' }}">
+        </div>
+      </div>
+    </div>
+
+    {% if form_fields %}
+      <div class="panel">
+        <div class="panel-head"><h2 class="text-sm font-medium">فیلدهای {{ type_.name }}</h2></div>
+        <div class="panel-body form-grid">
+          {% for field in form_fields %}
+            {% set name = "f_" ~ field.name %}
+            {% set value = v.get(name) or "" %}
+            <div class="field {{ 'md:col-span-3' if field.type == 'textarea' else '' }}">
+              <label class="field-label" for="{{ name }}">
+                {{ field.label }}{% if field.required %}<span class="text-error"> *</span>{% endif %}
+              </label>
+              {% if field.type == "textarea" %}
+                <textarea id="{{ name }}" name="{{ name }}" rows="4" class="textarea textarea-bordered w-full text-sm">{{ value }}</textarea>
+              {% elif field.type == "number" or field.type == "money" %}
+                <input id="{{ name }}" name="{{ name }}" class="input input-sm w-full num" value="{{ value }}">
+              {% elif field.type == "date" %}
+                <input id="{{ name }}" name="{{ name }}" data-jdp class="input input-sm w-full jalali" value="{{ value }}">
+              {% elif field.type == "checkbox" %}
+                <label class="flex items-center gap-2 pt-1 text-sm">
+                  <input type="checkbox" id="{{ name }}" name="{{ name }}" value="1" class="checkbox checkbox-sm checkbox-primary"
+                         {% if v.get(name) in ("1", "بله", "true") %}checked{% endif %}>
+                  <span>بله</span>
+                </label>
+              {% elif field.type == "select" %}
+                <select id="{{ name }}" name="{{ name }}" class="select select-sm w-full">
+                  <option value="">— انتخاب کنید —</option>
+                  {% for option in field.choices or [] %}
+                    <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              {% elif field.type == "file" %}
+                <input id="{{ name }}" name="{{ name }}" class="input input-sm w-full" placeholder="نام یا شماره فایل پیوست">
+              {% else %}
+                <input id="{{ name }}" name="{{ name }}" class="input input-sm w-full" value="{{ value }}">
+              {% endif %}
+              {% if errors and errors.get(field.name) %}<span class="field-error">{{ errors[field.name] }}</span>{% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">ارتباط با پرونده مشتری (اختیاری)</h2></div>
+      <div class="panel-body form-grid">
+        <div class="field">
+          <label class="field-label" for="r-company">شرکت / مشتری</label>
+          <select id="r-company" name="company_id" class="select select-sm w-full">
+            <option value="">—</option>
+            {% for company in companies %}
+              <option value="{{ company.id }}" {% if v.get('company_id') == company.id|string %}selected{% endif %}>{{ company.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field md:col-span-2">
+          <label class="field-label" for="r-note">توضیحات تکمیلی</label>
+          <input id="r-note" name="description" class="input input-sm w-full" value="{{ v.get('description') or '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مسیر تأیید</h2></div>
+      <div class="panel-body">
+        <ol class="space-y-2">
+          {% for step in type_.approval_steps or [] %}
+            <li class="flex items-center gap-2 text-sm">
+              <span class="num badge badge-ghost badge-sm">{{ loop.index | fa }}</span>
+              <span>{{ step.get("title") or "تأیید" }}</span>
+              <span class="text-[11px] text-base-content/50">
+                {{ ROLE_LABELS.get(step.get("role"), step.get("role") or "کاربر مشخص") }}
+              </span>
+            </li>
+          {% else %}
+            <li class="text-xs text-base-content/50">مسیر تأییدی تعریف نشده است.</li>
+          {% endfor %}
+        </ol>
+        {% if type_.requires_attachment %}
+          <p class="mt-3 rounded-field bg-warning/10 p-2 text-[11px] text-warning">
+            برای این نوع درخواست، بارگذاری فایل پیوست الزامی است (پس از ثبت در صفحه درخواست امکان‌پذیر است).
+          </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body space-y-2">
+        <button name="submit_now" value="1" class="btn btn-primary btn-sm w-full">🚀 ثبت و ارسال برای تأیید</button>
+        <button class="btn btn-outline btn-sm w-full">💾 ذخیره پیش‌نویس</button>
+        <a class="btn btn-ghost btn-sm w-full" href="/requests/new">انصراف</a>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

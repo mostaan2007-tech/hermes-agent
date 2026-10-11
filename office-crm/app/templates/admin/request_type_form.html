@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "macros.html" import page_header with context %}
+
+{% block title %}{{ "ویرایش نوع درخواست" if row else "نوع درخواست جدید" }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% set v = submitted or {} %}
+{% call page_header(("ویرایش " ~ row.name) if row else "نوع درخواست جدید",
+                    "فرم اختصاصی و مسیر تأیید را تعریف کنید", "🧩") %}
+  <a class="btn btn-ghost btn-sm" href="/admin/request-types">فهرست انواع</a>
+{% endcall %}
+
+<form method="post" action="/admin/request-types/save" class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+  {% if row %}<input type="hidden" name="type_id" value="{{ row.id }}">{% endif %}
+
+  <div class="xl:col-span-2 space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات نوع درخواست</h2></div>
+      <div class="panel-body form-grid">
+        <div class="field">
+          <label class="field-label" for="t-name">نام <span class="text-error">*</span></label>
+          <input id="t-name" name="name" required class="input input-sm w-full {{ 'input-error' if errors.get('name') }}"
+                 value="{{ v.get('name') or (row.name if row else '') }}" placeholder="مرخصی استحقاقی">
+          {% if errors.get('name') %}<span class="field-error">{{ errors['name'] }}</span>{% endif %}
+        </div>
+        <div class="field">
+          <label class="field-label" for="t-code">کد یکتا</label>
+          <input id="t-code" name="code" class="ltr input input-sm w-full num" value="{{ v.get('code') or (row.code if row else '') }}"
+                 placeholder="leave">
+        </div>
+        <div class="field">
+          <label class="field-label" for="t-icon">آیکن</label>
+          <input id="t-icon" name="icon" class="input input-sm w-full" value="{{ v.get('icon') or (row.icon if row else '📄') }}">
+        </div>
+        <div class="field md:col-span-3">
+          <label class="field-label" for="t-desc">توضیح</label>
+          <input id="t-desc" name="description" class="input input-sm w-full" value="{{ row.description if row else '' }}">
+        </div>
+        <div class="field">
+          <label class="field-label" for="t-order">ترتیب نمایش</label>
+          <input id="t-order" name="order_index" class="input input-sm w-full num" value="{{ row.order_index if row else 0 }}">
+        </div>
+        <div class="field">
+          <label class="flex items-center gap-2 pt-5 text-sm">
+            <input type="checkbox" name="is_active" value="1" class="toggle toggle-sm toggle-primary"
+                   {% if not row or row.is_active %}checked{% endif %}>
+            <span>فعال</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="flex items-center gap-2 pt-5 text-sm">
+            <input type="checkbox" name="requires_attachment" value="1" class="toggle toggle-sm toggle-primary"
+                   {% if row and row.requires_attachment %}checked{% endif %}>
+            <span>پیوست الزامی</span>
+          </label>
+        </div>
+        <div class="field">
+          <label class="flex items-center gap-2 pt-5 text-sm">
+            <input type="checkbox" name="allow_half_day" value="1" class="toggle toggle-sm toggle-primary"
+                   {% if row and row.allow_half_day %}checked{% endif %}>
+            <span>پشتیبانی نیم‌روز</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">فیلدهای فرم درخواست (JSON)</h2>
+        <span class="text-[11px] text-base-content/50">name، label، type، required، choices</span>
+      </div>
+      <div class="panel-body space-y-2" x-data="{ preview: true }">
+        <textarea name="fields_json" rows="10" class="ltr textarea textarea-bordered w-full font-mono text-xs">{{ fields_json }}</textarea>
+        {% if errors.get('fields_json') %}<span class="field-error">{{ errors['fields_json'] }}</span>{% endif %}
+        <div class="text-[11px] text-base-content/50">انواع مجاز: {% for value, label in field_types %}{{ value }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">مراحل تأیید (JSON)</h2>
+        <span class="text-[11px] text-base-content/50">به‌ترتیب اجرا</span>
+      </div>
+      <div class="panel-body space-y-2">
+        <textarea name="steps_json" rows="8" class="ltr textarea textarea-bordered w-full font-mono text-xs">{{ steps_json }}</textarea>
+        {% if errors.get('steps_json') %}<span class="field-error">{{ errors['steps_json'] }}</span>{% endif %}
+        <div class="text-[11px] text-base-content/50">
+          نقش‌های مجاز: {% for value, label in roles %}<span class="badge badge-ghost badge-xs m-0.5">{{ value }}</span>{% endfor %}
+          و نقش ویژه <span class="badge badge-ghost badge-xs">department_manager</span> (مدیر واحد درخواست‌دهنده).
+          می‌توانید <span class="num">user_id</span> یک شخص مشخص را هم بدهید. مراحلی که تأییدکننده ندارند به‌صورت خودکار رد می‌شوند.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">اعضای سامانه</h2><span class="text-[11px] text-base-content/50">برای user_id</span></div>
+      <div class="panel-body max-h-72 space-y-1 overflow-y-auto text-xs">
+        {% for person in users %}
+          <div class="flex items-center justify-between gap-2 rounded px-1 py-0.5 hover:bg-base-200">
+            <span class="num badge badge-ghost badge-xs">{{ person.id | fa }}</span>
+            <span class="min-w-0 flex-1 truncate">{{ person.full_name }}</span>
+            <span class="text-base-content/50">{{ ROLE_LABELS.get(person.role, person.role) }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body space-y-2">
+        <button class="btn btn-primary btn-sm w-full">{{ "ذخیره تغییرات" if row else "ایجاد نوع درخواست" }}</button>
+        {% if row %}
+          <a class="btn btn-ghost btn-sm w-full" href="/requests/new?type={{ row.id }}">پیش‌نمایش فرم</a>
+          <form method="post" action="/admin/request-types/{{ row.id }}/delete"
+                onsubmit="return confirm('این نوع درخواست حذف شود؟')">
+            <button class="btn btn-ghost btn-sm w-full text-error">حذف نوع درخواست</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

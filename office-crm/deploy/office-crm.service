@@ -1,0 +1,27 @@
+[Unit]
+Description=سامانه یکپارچه CRM و اتوماسیون اداری (Office CRM)
+Documentation=file:///opt/office-crm/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=office
+Group=office
+WorkingDirectory=/opt/office-crm
+EnvironmentFile=/etc/office-crm.env
+ExecStart=/opt/office-crm/.venv/bin/uvicorn app.main:app \
+    --host ${OFFICE_HOST} --port ${OFFICE_PORT} \
+    --proxy-headers --forwarded-allow-ips '*'
+Restart=always
+RestartSec=3
+# SQLite + uploads live in one folder: give the service the smallest possible view
+ReadWritePaths=/var/lib/office-crm
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

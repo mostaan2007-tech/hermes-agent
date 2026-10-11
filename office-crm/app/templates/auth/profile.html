@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}پروفایل من{% endblock %}
+{% from "macros.html" import kv with context %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-4">
+  <h1 class="text-xl font-bold">پروفایل من</h1>
+
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div class="panel lg:col-span-2">
+      <div class="panel-head"><h2 class="text-sm font-medium">اطلاعات من</h2></div>
+      <form method="post" action="/profile" class="panel-body space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">نام و نام خانوادگی</span>
+            <input name="full_name" class="input input-sm w-full" value="{{ user.full_name }}" required>
+          </label>
+          <label class="field">
+            <span class="field-label">ایمیل</span>
+            <input name="email" type="email" class="input input-sm w-full" value="{{ user.email or '' }}">
+          </label>
+          <label class="field">
+            <span class="field-label">تلفن همراه</span>
+            <input name="phone" class="input input-sm w-full" value="{{ user.phone or '' }}">
+          </label>
+        </div>
+        <div class="flex justify-end">
+          <button class="btn btn-primary btn-sm">ذخیره اطلاعات</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">حساب کاربری</h2></div>
+      <div class="panel-body">
+        {{ kv("نام کاربری", user.username) }}
+        {{ kv("نقش", ROLE_LABELS.get(user.role, user.role)) }}
+        {{ kv("سمت", user.position) }}
+        {{ kv("آخرین ورود", user.last_login_at | jdt) }}
+      </div>
+      <div class="border-t border-base-300 px-4 py-3">
+        <a class="btn btn-outline btn-sm w-full" href="/profile/password">تغییر گذرواژه</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">نشست‌های فعال ({{ sessions | length | fa }})</h2>
+      <form method="post" action="/profile/sessions/revoke"
+            onsubmit="return confirm('همه نشست‌های دیگر بسته شوند؟')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="session_id" value="all">
+        <input type="hidden" name="keep_current" value="1">
+        <button class="btn btn-ghost btn-xs text-error">بستن سایر نشست‌ها</button>
+      </form>
+    </div>
+    <div class="table-wrap border-0">
+      <table class="tbl">
+        <thead><tr><th>دستگاه / مرورگر</th><th>IP</th><th>آخرین فعالیت</th><th>انقضا</th><th></th></tr></thead>
+        <tbody>
+        {% for session, is_current in sessions %}
+          <tr>
+            <td class="max-w-72 truncate text-xs">{{ session.user_agent or "نامشخص" }}
+              {% if is_current %}<span class="badge badge-xs badge-success">نشست فعلی</span>{% endif %}
+            </td>
+            <td class="num text-xs">{{ session.ip or "—" }}</td>
+            <td class="text-xs">{{ session.last_seen_at | reltime }}</td>
+            <td class="text-xs">{{ session.expires_at | jdt }}</td>
+            <td class="text-end">
+              {% if not is_current %}
+                <form method="post" action="/profile/sessions/revoke">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="session_id" value="{{ session.id }}">
+                  <button class="btn btn-ghost btn-xs text-error">بستن</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

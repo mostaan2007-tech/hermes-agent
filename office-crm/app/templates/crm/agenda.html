@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}برنامه پیگیری — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("برنامه پیگیری و تماس‌ها", "کارهای فروش زمان‌بندی‌شده؛ عقب‌افتاده، امروز و آینده", "📞") %}
+  <a class="btn btn-outline btn-sm" href="/activities">همه فعالیت‌ها</a>
+  {% if can("crm.create") %}<a class="btn btn-primary btn-sm" href="/activities/new?owner_id={{ user.id }}">+ فعالیت جدید</a>{% endif %}
+{% endcall %}
+
+{% macro activity_row(item) %}
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-base-200 px-4 py-3 last:border-0">
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <span>{{ ACTIVITY_KIND_ICONS.get(item.kind, "🔔") }}</span>
+        <a class="text-sm font-medium hover:text-primary hover:underline" href="/activities/{{ item.id }}">{{ item.subject }}</a>
+        {{ badge(PRIORITY_LABELS.get(item.priority, item.priority), "badge-" ~ PRIORITY_BADGES.get(item.priority, "ghost")) }}
+      </div>
+      <div class="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-base-content/55">
+        <span>{{ item.due_at | jdt }}</span>
+        {% set company_name = companies.get(item.company_id) %}
+        {% if company_name %}· <a class="hover:underline" href="/companies/{{ item.company_id }}">{{ company_name }}</a>{% endif %}
+        {% if item.deal_id %}· <a class="hover:underline" href="/deals/{{ item.deal_id }}">فرصت فروش</a>{% endif %}
+        {% if item.contact_id %}· <a class="hover:underline" href="/contacts/{{ item.contact_id }}">مخاطب</a>{% endif %}
+      </div>
+    </div>
+    <div class="flex items-center gap-1">
+      <form method="post" action="/activities/{{ item.id }}/done">
+        <button class="btn btn-success btn-xs">انجام شد</button>
+      </form>
+      <a class="btn btn-ghost btn-xs" href="/activities/{{ item.id }}/edit">ویرایش</a>
+    </div>
+  </div>
+{% endmacro %}
+
+<div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
+  <div class="panel border-error/40">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium text-error">عقب‌افتاده ({{ overdue | length | fa }})</h2>
+      <span class="text-[11px] text-base-content/50">نیازمند اقدام فوری</span>
+    </div>
+    <div>{% for item in overdue %}{{ activity_row(item) }}{% else %}{{ empty("موردی عقب نیفتاده است", None, "✅") }}{% endfor %}</div>
+  </div>
+
+  <div class="panel border-primary/40">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium text-primary">امروز ({{ today_items | length | fa }})</h2>
+      <span class="text-[11px] text-base-content/50">{{ today_jalali }}</span>
+    </div>
+    <div>{% for item in today_items %}{{ activity_row(item) }}{% else %}{{ empty("برای امروز موردی زمان‌بندی نشده است", None, "🗓") }}{% endfor %}</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="text-sm font-medium">پیش‌رو ({{ later | length | fa }})</h2>
+      <span class="text-[11px] text-base-content/50">روزهای آینده</span>
+    </div>
+    <div>{% for item in later %}{{ activity_row(item) }}{% else %}{{ empty("موردی زمان‌بندی نشده است", None, "🕐") }}{% endfor %}</div>
+  </div>
+</div>
+{% endblock %}

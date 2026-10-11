@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}{{ "دفتر ثبت نامه‌ها" if register else "نامه‌ها" }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% if register %}
+  {% call page_header("دفتر ثبت نامه‌ها (اندیکاتور)", "فهرست رسمی نامه‌های ثبت‌شده با شماره و تاریخ", "📚") %}
+    <a class="btn btn-ghost btn-sm" href="/letters">نمای کامل نامه‌ها</a>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 چاپ دفتر</button>
+  {% endcall %}
+{% else %}
+  {% call page_header("دبیرخانه و نامه‌نگاری", "نامه‌های وارده، صادره و داخلی با گردش امضا و شماره رسمی", "✉") %}
+    {% if can_create %}
+      <a class="btn btn-primary btn-sm" href="/letters/new?direction=outgoing">+ نامه صادره</a>
+      <a class="btn btn-outline btn-sm" href="/letters/new?direction=incoming">+ نامه وارده</a>
+    {% endif %}
+    {% if can_sign %}
+      <a class="btn btn-ghost btn-sm" href="/letters/signatures">✍ کارتابل امضا</a>
+    {% endif %}
+    <a class="btn btn-ghost btn-sm" href="/letters/register">📚 دفتر ثبت</a>
+  {% endcall %}
+{% endif %}
+
+<div class="grid grid-cols-2 gap-3 md:grid-cols-5 no-print">
+  <div class="stat-card"><div class="text-xs text-base-content/60">کل نامه‌ها</div><div class="num mt-1 text-xl font-bold">{{ summary.total | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">وارده</div><div class="num mt-1 text-xl font-bold">{{ summary.incoming | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">صادره</div><div class="num mt-1 text-xl font-bold">{{ summary.outgoing | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">در انتظار امضا</div><div class="num mt-1 text-xl font-bold text-warning">{{ summary.awaiting | fa }}</div></div>
+  <div class="stat-card"><div class="text-xs text-base-content/60">پیش‌نویس</div><div class="num mt-1 text-xl font-bold text-base-content/60">{{ summary.draft | fa }}</div></div>
+</div>
+
+<form method="get" action="/letters" class="mt-3 flex flex-wrap items-center gap-2 no-print">
+  <input name="q" value="{{ params.get('q', '') }}" class="input input-sm input-bordered w-56" placeholder="موضوع، شماره یا سازمان…">
+  <select name="direction" class="select select-sm select-bordered">
+    <option value="">همه جهت‌ها</option>
+    {% for value, label in directions %}<option value="{{ value }}" {% if params.get('direction') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="status" class="select select-sm select-bordered">
+    <option value="">همه وضعیت‌ها</option>
+    {% for value, label in statuses %}<option value="{{ value }}" {% if params.get('status') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <input name="from" data-jdp class="input input-sm input-bordered w-32 jalali" placeholder="از تاریخ" value="{{ params.get('from', '') }}">
+  <input name="to" data-jdp class="input input-sm input-bordered w-32 jalali" placeholder="تا تاریخ" value="{{ params.get('to', '') }}">
+  <button class="btn btn-outline btn-sm">فیلتر</button>
+  {% if params %}<a class="btn btn-ghost btn-sm" href="/letters">پاک کردن</a>{% endif %}
+</form>
+
+<div class="table-wrap mt-3">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th class="w-10">#</th><th class="w-28">شماره</th><th>موضوع</th><th class="w-24">جهت</th>
+        <th>طرف مکاتبه</th><th class="w-24">تاریخ</th><th class="w-24">وضعیت</th><th class="w-20">پیوست</th><th class="w-24 no-print"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr class="hover">
+          <td class="num text-xs text-base-content/50">{{ loop.index | fa }}</td>
+          <td class="num text-xs">{{ (row.number or "—") | fa }}</td>
+          <td>
+            <a class="text-sm font-medium hover:text-primary hover:underline" href="/letters/{{ row.id }}">{{ row.subject }}</a>
+            {% if row.confidentiality != "normal" %}<span title="محرمانه">🔒</span>{% endif %}
+            {% if row.priority in ("high", "urgent") %}<span title="{{ PRIORITY_LABELS.get(row.priority) }}">⚡</span>{% endif %}
+          </td>
+          <td>{{ badge(LETTER_DIRECTION_LABELS.get(row.direction, row.direction), "badge-" ~ LETTER_DIRECTION_BADGES.get(row.direction, "ghost")) }}</td>
+          <td class="text-xs">{{ row.correspondent_org or companies.get(row.company_id) or row.sender_name or row.recipient_name or "—" }}</td>
+          <td class="num text-xs">{{ row.letter_date | jdate }}</td>
+          <td>{{ badge(LETTER_STATUS_LABELS.get(row.status, row.status), "badge-" ~ LETTER_STATUS_BADGES.get(row.status, "ghost")) }}</td>
+          <td class="text-xs">{{ row.attachment_count | fa if row.attachment_count is defined else "—" }}</td>
+          <td class="no-print">
+            <div class="flex items-center gap-1">
+              <a class="btn btn-ghost btn-xs" href="/letters/{{ row.id }}/print" target="_blank" title="چاپ">🖨</a>
+              {% if can("letters.edit") %}<a class="btn btn-ghost btn-xs" href="/letters/{{ row.id }}/edit" title="ویرایش">✎</a>{% endif %}
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9">{{ empty("نامه‌ای یافت نشد", "با دکمه‌های بالا یک نامه وارده یا صادره ثبت کنید.", "✉") }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

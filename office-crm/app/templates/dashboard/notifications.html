@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "macros.html" import empty, badge, page_header with context %}
+
+{% block title %}اعلان‌ها — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("اعلان‌ها", "هر رویدادی که به شما مربوط است: تأییدها، امضاها، سررسیدها و یادآوری‌ها", "🔔") %}
+  <form method="post" action="/notifications/read-all">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-outline btn-sm">✓ خواندن همه</button>
+  </form>
+  <a class="btn btn-ghost btn-sm" href="/inbox">کارتابل من</a>
+{% endcall %}
+
+<div class="panel">
+  <div class="panel-body p-0">
+    {% for note in notifications %}
+      <div class="flex items-start gap-3 border-b border-base-200 px-4 py-3 last:border-0 {{ '' if note.is_read else 'bg-primary/5' }}">
+        <span class="grid size-9 shrink-0 place-items-center rounded-full bg-base-200 text-sm">
+          {{ {"approval": "✅", "signature": "✍️", "task": "✓", "deal": "📊", "reminder": "⏰", "letter": "✉"}.get(note.kind, "🔔") }}
+        </span>
+        <div class="min-w-0 flex-1">
+          <a href="{{ note.url or '/notifications' }}" class="block text-sm {{ 'font-medium' if not note.is_read else '' }}">{{ note.title }}</a>
+          {% if note.body %}<p class="mt-0.5 text-xs text-base-content/60">{{ note.body }}</p>{% endif %}
+          <div class="mt-1 text-[11px] text-base-content/45">{{ note.created_at | jdtl }} · {{ note.created_at | reltime }}</div>
+        </div>
+        {% if not note.is_read %}
+          <form method="post" action="/notifications/{{ note.id }}/read">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="next" value="/notifications">
+            <button class="btn btn-ghost btn-xs" title="خوانده شد">✓</button>
+          </form>
+        {% else %}
+          {{ badge("خوانده‌شده", "badge-ghost") }}
+        {% endif %}
+      </div>
+    {% else %}
+      {{ empty("اعلانی ندارید", "به‌محض رخ دادن رویدادی مربوط به شما، اینجا نمایش داده می‌شود.", "🔔") }}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

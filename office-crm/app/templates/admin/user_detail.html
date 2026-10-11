@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, empty with context %}
+
+{% block title %}{{ user_row.full_name }} — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header(user_row.full_name, user_row.position or ROLE_LABELS.get(user_row.role, user_row.role), "👤") %}
+  <a class="btn btn-ghost btn-sm" href="/admin/users">فهرست کاربران</a>
+  <a class="btn btn-outline btn-sm" href="/admin/users/{{ user_row.id }}/edit">✎ ویرایش</a>
+  <form method="post" action="/admin/users/{{ user_row.id }}/toggle">
+    <button class="btn btn-ghost btn-sm {{ 'text-success' if not user_row.is_active else 'text-warning' }}">
+      {{ "فعال‌سازی حساب" if not user_row.is_active else "غیرفعال کردن حساب" }}
+    </button>
+  </form>
+  {% if user_row.id != user.id %}
+    <form method="post" action="/admin/users/{{ user_row.id }}/delete"
+          onsubmit="return confirm('این کاربر حذف شود؟ سوابق او باقی می‌ماند.')">
+      <button class="btn btn-ghost btn-sm text-error">حذف</button>
+    </form>
+  {% endif %}
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-4 lg:col-span-2">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div class="stat-card"><div class="text-xs text-base-content/60">وظایف باز</div><div class="num mt-1 text-lg font-bold">{{ stats.open_tasks | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">کل وظایف</div><div class="num mt-1 text-lg font-bold">{{ stats.tasks | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">فرصت‌های فروش</div><div class="num mt-1 text-lg font-bold">{{ stats.deals | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">نامه‌های ثبت‌شده</div><div class="num mt-1 text-lg font-bold">{{ stats.letters | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">درخواست‌ها</div><div class="num mt-1 text-lg font-bold">{{ stats.requests | fa }}</div></div>
+      <div class="stat-card"><div class="text-xs text-base-content/60">پیگیری‌ها</div><div class="num mt-1 text-lg font-bold">{{ stats.activities | fa }}</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">آخرین رویدادهای این کاربر</h2></div>
+      <div class="divide-y divide-base-200">
+        {% for log in logs %}
+          <div class="flex items-center justify-between gap-2 px-4 py-2 text-xs">
+            <div class="min-w-0">
+              <span class="badge badge-ghost badge-xs">{{ log.action }}</span>
+              <span class="ms-2">{{ log.summary or "—" }}</span>
+            </div>
+            <span class="whitespace-nowrap text-base-content/50">{{ log.at | jdt }}</span>
+          </div>
+        {% else %}
+          {{ empty("رویدادی ثبت نشده است", None, "🗒") }}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("نام کاربری", user_row.username) }}
+        {{ kv("نقش", ROLE_LABELS.get(user_row.role, user_row.role)) }}
+        {{ kv("واحد سازمانی", department.name if department else None) }}
+        {{ kv("سمت", user_row.position) }}
+        {{ kv("ایمیل", user_row.email) }}
+        {{ kv("تلفن", user_row.phone | fa) }}
+        {{ kv("وضعیت", "فعال" if user_row.is_active else "غیرفعال",
+              "text-success" if user_row.is_active else "text-error") }}
+        {{ kv("آخرین ورود", user_row.last_login_at | jdt if user_row.last_login_at else "هرگز") }}
+        {{ kv("تاریخ ایجاد", user_row.created_at | jdate) }}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">تغییر رمز عبور</h2></div>
+      <form method="post" action="/admin/users/{{ user_row.id }}/password" class="panel-body space-y-2">
+        <input name="password" type="password" class="ltr input input-sm w-full" placeholder="رمز جدید" autocomplete="new-password">
+        <label class="flex items-center gap-2 text-xs">
+          <input type="checkbox" name="must_change_password" value="1" class="checkbox checkbox-xs checkbox-primary">
+          <span>تغییر رمز در ورود بعدی الزامی باشد</span>
+        </label>
+        <button class="btn btn-outline btn-sm w-full">ثبت رمز جدید</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">نشست‌های فعال</h2></div>
+      <div class="panel-body space-y-2 text-xs">
+        {% for session_row in sessions %}
+          <div class="rounded-field border border-base-200 p-2">
+            <div class="num ltr">{{ session_row.ip or "—" }}</div>
+            <div class="truncate text-base-content/60">{{ session_row.user_agent or "—" }}</div>
+            <div class="text-base-content/50">آخرین فعالیت: {{ session_row.last_seen_at | reltime }}</div>
+            <div class="text-base-content/50">انقضا: {{ session_row.expires_at | jdt }}</div>
+          </div>
+        {% else %}
+          <p class="text-base-content/50">نشست فعالی وجود ندارد.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, empty, bar_chart, sparkline, page_header with context %}
+
+{% block title %}گزارش‌ها — {{ settings.app_short_name }}{% endblock %}
+
+{% block content %}
+{% call page_header("گزارش‌ها و تحلیل", "تصویر یکپارچه از فروش و اتوماسیون اداری", "📈") %}
+  <div class="join">
+    <a class="join-item btn btn-sm {{ 'btn-primary' if tab == 'sales' else 'btn-ghost' }}"
+       href="/reports?tab=sales&y={{ first | jyear }}&m={{ jparts(first)[1] }}">فروش و مشتریان</a>
+    <a class="join-item btn btn-sm {{ 'btn-primary' if tab == 'office' else 'btn-ghost' }}"
+       href="/reports?tab=office&y={{ first | jyear }}&m={{ jparts(first)[1] }}">اتوماسیون اداری</a>
+  </div>
+{% endcall %}
+
+<form method="get" action="/reports" class="mb-3 flex flex-wrap items-center gap-2">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <input name="from" data-jdp class="input input-sm input-bordered w-32 jalali" value="{{ date_from }}" placeholder="از تاریخ">
+  <input name="to" data-jdp class="input input-sm input-bordered w-32 jalali" value="{{ date_to }}" placeholder="تا تاریخ">
+  <button class="btn btn-outline btn-sm">اعمال بازه</button>
+  <span class="text-[11px] text-base-content/50">بازه فعلی: {{ date_from | fa }} تا {{ date_to | fa }} (ماه {{ range_label | fa }})</span>
+  <a class="btn btn-ghost btn-sm" href="/reports?tab={{ tab }}">بازگشت به ماه جاری</a>
+</form>
+
+{% if tab == "office" %}
+  {# ---------------------------------------------------------- office tab #}
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div class="stat-card"><div class="text-xs text-base-content/60">درخواست‌های در جریان</div><div class="num mt-1 text-xl font-bold text-warning">{{ requests_summary.open | fa }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">درخواست‌های تأییدشده</div><div class="num mt-1 text-xl font-bold text-success">{{ requests_summary.approved | fa }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">نامه‌های وارده</div><div class="num mt-1 text-xl font-bold">{{ letters_summary.incoming | fa }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">وظایف عقب‌افتاده</div><div class="num mt-1 text-xl font-bold text-error">{{ tasks_summary.overdue | fa }}</div></div>
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">درخواست‌ها به تفکیک نوع و وضعیت</h2></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>نوع درخواست</th><th>در جریان</th><th>تأییدشده</th><th>ردشده</th><th>جمع</th></tr></thead>
+          <tbody>
+            {% for row in requests_by_type %}
+              <tr>
+                <td class="text-sm">{{ row.name }}</td>
+                <td class="num">{{ row.statuses.get("pending", 0) | fa }}</td>
+                <td class="num text-success">{{ row.statuses.get("approved", 0) | fa }}</td>
+                <td class="num text-error">{{ row.statuses.get("rejected", 0) | fa }}</td>
+                <td class="num font-bold">{{ row.total | fa }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5">{{ empty("داده‌ای در این بازه ثبت نشده است", None, "📄") }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">نامه‌ها به تفکیک جهت</h2></div>
+      <div class="panel-body">{{ bar_chart(letters_by_direction, "count", "label") }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">بار کاری همکاران (وظایف)</h2></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>همکار</th><th>کل وظایف</th><th>انجام‌شده</th><th>درصد انجام</th></tr></thead>
+          <tbody>
+            {% for row in workload %}
+              <tr>
+                <td class="text-sm">{{ row.name }}</td>
+                <td class="num">{{ row.total | fa }}</td>
+                <td class="num text-success">{{ row.done | fa }}</td>
+                <td class="num">{{ row.done | pct(row.total) | fa }}٪</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4">{{ empty("وظیفه‌ای در این بازه ثبت نشده است", None, "✓") }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">ملخص سامانه</h2></div>
+      <div class="panel-body grid grid-cols-2 gap-3 text-sm">
+        <div class="rounded-field bg-base-200/60 p-3">
+          <div class="text-[11px] text-base-content/60">وظایف باز</div>
+          <div class="num text-lg font-bold">{{ tasks_summary.open | fa }}</div>
+        </div>
+        <div class="rounded-field bg-base-200/60 p-3">
+          <div class="text-[11px] text-base-content/60">وظایف انجام‌شده</div>
+          <div class="num text-lg font-bold text-success">{{ tasks_summary.done | fa }}</div>
+        </div>
+        <div class="rounded-field bg-base-200/60 p-3">
+          <div class="text-[11px] text-base-content/60">نامه‌های در انتظار امضا</div>
+          <div class="num text-lg font-bold text-warning">{{ letters_summary.awaiting_signature | fa }}</div>
+        </div>
+        <div class="rounded-field bg-base-200/60 p-3">
+          <div class="text-[11px] text-base-content/60">پیش‌نویس نامه‌ها</div>
+          <div class="num text-lg font-bold">{{ letters_summary.drafts | fa }}</div>
+        </div>
+      </div>
+      <div class="panel-body border-t border-base-200 text-xs">
+        <div class="mb-2 text-base-content/60">خروجی CSV برای تحلیل در اکسل:</div>
+        <div class="flex flex-wrap gap-2">
+          <a class="btn btn-outline btn-xs" href="/reports/export.csv?kind=requests">درخواست‌ها</a>
+          <a class="btn btn-outline btn-xs" href="/reports/export.csv?kind=tasks">وظایف</a>
+          <a class="btn btn-outline btn-xs" href="/reports/export.csv?kind=letters">نامه‌ها</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  {# ----------------------------------------------------------- sales tab #}
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+    <div class="stat-card"><div class="text-xs text-base-content/60">فرصت‌های باز</div><div class="num mt-1 text-xl font-bold">{{ deal_totals.open_count | fa }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">ارزش فرصت‌های باز</div><div class="num mt-1 text-lg font-bold">{{ deal_totals.open_value | money }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">فروش قطعی</div><div class="num mt-1 text-xl font-bold text-success">{{ deal_totals.won_count | fa }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">ارزش فروش قطعی</div><div class="num mt-1 text-lg font-bold text-success">{{ deal_totals.won_value | money }}</div></div>
+    <div class="stat-card"><div class="text-xs text-base-content/60">از دست رفته</div><div class="num mt-1 text-xl font-bold text-error">{{ deal_totals.lost_count | fa }}</div></div>
+  </div>
+
+  <div class="mt-4 panel">
+    <div class="panel-head"><h2 class="text-sm font-medium">روند ۱۲ ماه گذشته</h2><span class="text-[11px] text-base-content/50">فروش قطعی</span></div>
+    <div class="panel-body">
+      {{ sparkline(chart_line, "ارزش فروش قطعی در هر ماه شمسی") }}
+      <div class="mt-2 grid grid-cols-12 gap-1 text-center">
+        {% for item in series %}
+          <div>
+            <div class="mx-auto w-full rounded-sm bg-success/30" style="height: {{ 4 + (item.won / ((series | map(attribute='won') | list | max) or 1)) * 44 }}px"></div>
+            <div class="mt-1 text-[10px] text-base-content/50">{{ item.label | fa }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">قیف فروش</h2></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>مرحله</th><th>تعداد</th><th>ارزش</th><th>وزنی</th></tr></thead>
+          <tbody>
+            {% for row in pipeline %}
+              <tr>
+                <td class="text-sm"><span class="me-1 inline-block size-2 rounded-full" style="background: {{ row.stage.color }}"></span>{{ row.stage.name }}</td>
+                <td class="num">{{ row.count | fa }}</td>
+                <td class="num text-xs">{{ row.amount | money }}</td>
+                <td class="num text-xs text-base-content/60">{{ row.weighted | money }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">منابع سرنخ</h2></div>
+      <div class="panel-body">{{ bar_chart(sources, "count", "label") }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">صنعت‌های مشتریان</h2></div>
+      <div class="panel-body">{{ bar_chart(industries, "value", "label") }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">عملکرد کارشناسان فروش</h2></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>کارشناس</th><th>معاملات قطعی</th><th>ارزش</th></tr></thead>
+          <tbody>
+            {% for row in owners %}
+              <tr>
+                <td class="text-sm">{{ row.name }}</td>
+                <td class="num">{{ row.count | fa }}</td>
+                <td class="num text-xs">{{ row.value | money }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3">{{ empty("در این بازه معامله قطعی ثبت نشده است", None, "📊") }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">دلایل از دست دادن</h2></div>
+      <div class="panel-body">{{ bar_chart(lost_reasons, "count", "label") }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشتریان برتر</h2></div>
+      <div class="panel-body">{{ bar_chart(top_customers, "value", "name") }}</div>
+      <div class="panel-body border-t border-base-200 text-xs">
+        <a class="btn btn-outline btn-xs" href="/reports/export.csv?kind=deals">خروجی CSV فرصت‌ها</a>
+        <a class="btn btn-outline btn-xs" href="/reports/export.csv?kind=quotes">خروجی CSV اسناد مالی</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">فعالیت کارشناسان (۹۰ روز)</h2></div>
+      <div class="panel-body">{{ bar_chart(leaders, "total", "name") }}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">فعالیت‌ها به تفکیک نوع</h2></div>
+      <div class="panel-body">{{ bar_chart(activities_by_kind, "count", "label") }}</div>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

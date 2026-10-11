@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "macros.html" import badge, kv, page_header, comments_block with context %}
+
+{% block title %}{{ row.title }} — جلسه{% endblock %}
+
+{% block content %}
+{% call page_header(row.title, (MEETING_STATUS_LABELS.get(row.status, row.status)) ~ " · " ~ (row.start_at | jdt), "👥") %}
+  <a class="btn btn-ghost btn-sm" href="/meetings">فهرست جلسات</a>
+  <a class="btn btn-ghost btn-sm" href="/meetings/calendar">تقویم جلسات</a>
+  <a class="btn btn-outline btn-sm" href="/meetings/{{ row.id }}/edit">✎ ویرایش</a>
+{% endcall %}
+
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-4 lg:col-span-2">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 class="text-sm font-medium">صورت‌جلسه و مصوبات</h2>
+        {% if can_edit %}<a class="text-[11px] text-primary hover:underline" href="/meetings/{{ row.id }}/edit">ثبت / ویرایش صورت‌جلسه</a>{% endif %}
+      </div>
+      <div class="panel-body whitespace-pre-wrap text-sm leading-8">{{ row.minutes or "صورت‌جلسه‌ای ثبت نشده است." }}</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">دستور جلسه</h2></div>
+      <div class="panel-body whitespace-pre-wrap text-sm">{{ row.agenda or "دستور جلسه‌ای ثبت نشده است." }}</div>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مشخصات جلسه</h2></div>
+      <div class="panel-body text-sm">
+        {{ kv("وضعیت", MEETING_STATUS_LABELS.get(row.status, row.status)) }}
+        {{ kv("شروع", row.start_at | jdtl) }}
+        {{ kv("پایان", row.end_at | jdtl) }}
+        {{ kv("برگزارکننده", organizer.full_name if organizer else None) }}
+        {% if room %}{{ kv("اتاق", room.name) }}{% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">شرکت‌کنندگان ({{ attendees | length | fa }})</h2></div>
+      <div class="panel-body flex flex-wrap gap-1">
+        {% for person in attendees %}
+          <span class="badge badge-outline badge-sm">{{ person.full_name }}</span>
+        {% else %}
+          <p class="text-xs text-base-content/50">شرکت‌کننده‌ای ثبت نشده است.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="text-sm font-medium">مراجع مرتبط</h2></div>
+      <div class="panel-body space-y-1 text-sm">
+        {% if company %}<a class="block hover:underline" href="/companies/{{ company.id }}">🏢 {{ company.name }}</a>{% endif %}
+        {% if deal %}<a class="block hover:underline" href="/deals/{{ deal.id }}">📊 {{ deal.title }}</a>{% endif %}
+        {% if not (company or deal) %}<p class="text-xs text-base-content/50">به پرونده‌ای متصل نیست.</p>{% endif %}
+      </div>
+    </div>
+
+    {{ comments_block("meeting", row.id, comments, "/meetings/" ~ row.id) }}
+  </div>
+</div>
+{% endblock %}
