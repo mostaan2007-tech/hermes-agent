@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "office-crm"
-version = "1.0.0"
+version = "1.0.1"
 description = "سامانه یکپارچه مدیریت مشتریان (CRM) و اتوماسیون اداری — یک برنامه، یک پایگاه داده، یک ورود"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ classifiers = [
 # Deliberately small: SQLite, no Redis, no Celery, no Node at runtime.
 dependencies = [
   "fastapi>=0.115",
-  "uvicorn[standard]>=0.30",
+  "uvicorn>=0.30",
   "sqlmodel>=0.0.22",
   "sqlalchemy>=2.0.30",
   "pydantic>=2.7",

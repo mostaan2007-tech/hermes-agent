@@ -1,7 +1,7 @@
 # Runtime dependencies — mirror of [project.dependencies] in pyproject.toml.
 # Install with:  python -m venv .venv && .venv/bin/pip install -r requirements.txt
 fastapi>=0.115
-uvicorn[standard]>=0.30
+uvicorn>=0.30
 sqlmodel>=0.0.22
 sqlalchemy>=2.0.30
 pydantic>=2.7

@@ -6,3 +6,8 @@
 *.command text eol=lf
 *.sh      text eol=lf
 *.py      text eol=lf
+
+# The downloadable zips under dist/ are build output, not source. Excluding
+# them from `git archive` keeps a freshly rebuilt zip from embedding a stale
+# copy of itself (dist/ holds previous archives of this very folder).
+dist/ export-ignore

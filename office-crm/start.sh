@@ -47,14 +47,9 @@ fi
 
 PYBIN=".venv/bin/python"
 if [ ! -f .venv/.installed ] || [ requirements.txt -nt .venv/.installed ]; then
-  echo "  نصب کتابخانه‌های لازم (فقط بار اول یا پس از بروزرسانی؛ اینترنت لازم است)…"
-  "$PYBIN" -m pip install --quiet --upgrade pip
-  if "$PYBIN" -m pip install --quiet -r requirements.txt; then
-    echo "  کتابخانه‌ها نصب شد."
+  if "$PYBIN" tools/bootstrap_install.py; then
     touch .venv/.installed
   else
-    echo "  [!] نصب خودکار ناموفق بود؛ جزئیات خطا:"
-    "$PYBIN" -m pip install -r requirements.txt || true
     read -r -p "  برای بستن Enter بزنید…" _ || true
     exit 1
   fi

@@ -24,11 +24,8 @@ if not exist ".venv" (
 
 set "PYBIN=.venv\Scripts\python.exe"
 if not exist ".venv\.installed" (
-  echo   نصب کتابخانه‌های لازم ^(فقط بار اول؛ اینترنت لازم است^)...
-  "%PYBIN%" -m pip install --quiet --upgrade pip >nul
-  "%PYBIN%" -m pip install --quiet -r requirements.txt
+  "%PYBIN%" tools\bootstrap_install.py
   if errorlevel 1 goto failed
-  echo   کتابخانه‌ها نصب شد.
   echo installed > ".venv\.installed"
 )
 
